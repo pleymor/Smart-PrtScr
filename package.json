@@ -61,7 +61,6 @@
   "dependencies": {
     "electron-store": "^11.0.2",
     "node-global-key-listener": "^0.3.0",
-    "screenshot-desktop": "^1.15.3",
     "sharp": "^0.34.5"
   },
   "devDependencies": {

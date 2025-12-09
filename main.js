@@ -1,7 +1,6 @@
-const { app, BrowserWindow, ipcMain, dialog, screen, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, Tray, Menu, nativeImage, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const screenshot = require('screenshot-desktop');
 const sharp = require('sharp');
 
 let Store;
@@ -12,6 +11,7 @@ let GlobalKeyboardListener;
 let mainWindow = null;
 let selectionWindow = null;
 let tray = null;
+let currentScreenshotBuffer = null; // Stocker la capture actuelle
 
 // Obtenir le dossier par défaut (dossier Captures d'écran de Windows)
 function getDefaultScreenshotPath() {
@@ -74,42 +74,85 @@ async function addTimestampToImage(imageBuffer) {
 }
 
 // Créer la fenêtre de sélection
-function createSelectionWindow() {
-  const displays = screen.getAllDisplays();
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.bounds;
+async function createSelectionWindow() {
+  try {
+    // Capturer l'écran AVANT d'afficher l'overlay avec desktopCapturer
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.size;
+    const scaleFactor = primaryDisplay.scaleFactor;
 
-  selectionWindow = new BrowserWindow({
-    fullscreen: true,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+    // Obtenir les sources d'écran
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: width * scaleFactor, height: height * scaleFactor }
+    });
+
+    if (sources.length === 0) {
+      console.error('No screen sources found');
+      return;
     }
-  });
 
-  selectionWindow.loadFile('selection.html');
-  selectionWindow.setIgnoreMouseEvents(false);
+    // Utiliser le premier écran (ou l'écran où se trouve le curseur)
+    const cursorPoint = screen.getCursorScreenPoint();
+    const activeDisplay = screen.getDisplayNearestPoint(cursorPoint);
 
-  selectionWindow.on('closed', () => {
-    selectionWindow = null;
-  });
+    // Trouver la source correspondante
+    let source = sources[0];
+    for (const s of sources) {
+      if (s.display_id === String(activeDisplay.id)) {
+        source = s;
+        break;
+      }
+    }
+
+    // Convertir le thumbnail NativeImage en PNG buffer
+    const imgBuffer = source.thumbnail.toPNG();
+
+    // Stocker la capture pour la réutiliser lors de la sélection
+    currentScreenshotBuffer = imgBuffer;
+
+    // Convertir l'image en base64
+    const base64Image = imgBuffer.toString('base64');
+
+    selectionWindow = new BrowserWindow({
+      fullscreen: true,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false
+      }
+    });
+
+    selectionWindow.loadFile('selection.html');
+    selectionWindow.setIgnoreMouseEvents(false);
+
+    // Envoyer la capture à la fenêtre
+    selectionWindow.webContents.on('did-finish-load', () => {
+      selectionWindow.webContents.send('screenshot-data', base64Image);
+    });
+
+    selectionWindow.on('closed', () => {
+      selectionWindow = null;
+      currentScreenshotBuffer = null; // Nettoyer la mémoire
+    });
+  } catch (error) {
+    console.error('Error creating selection window:', error);
+  }
 }
 
 // Capturer la sélection
 async function captureSelection(bounds) {
   try {
-    const displays = screen.getAllDisplays();
-    const cursorPoint = screen.getCursorScreenPoint();
-    const activeDisplay = screen.getDisplayNearestPoint(cursorPoint);
-    const displayIndex = displays.findIndex(d => d.id === activeDisplay.id);
+    // Utiliser la capture déjà prise (sans l'overlay)
+    if (!currentScreenshotBuffer) {
+      console.error('No screenshot buffer available');
+      return;
+    }
 
-    const imgBuffer = await screenshot({ screen: displayIndex });
-
-    const croppedImage = await sharp(imgBuffer)
+    const croppedImage = await sharp(currentScreenshotBuffer)
       .extract({
         left: Math.round(bounds.x),
         top: Math.round(bounds.y),
@@ -123,6 +166,11 @@ async function captureSelection(bounds) {
     const savePath = getSavePath();
     const filename = generateFilename();
     const fullPath = path.join(savePath, filename);
+
+    // Vérifier que le dossier existe
+    if (!fs.existsSync(savePath)) {
+      fs.mkdirSync(savePath, { recursive: true });
+    }
 
     await sharp(finalImage).toFile(fullPath);
 
@@ -153,8 +201,10 @@ function createMainWindow() {
   }
 
   mainWindow = new BrowserWindow({
-    width: 500,
-    height: 400,
+    width: 600,
+    height: 380,
+    frame: false,
+    resizable: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -163,6 +213,7 @@ function createMainWindow() {
   });
 
   mainWindow.loadFile('index.html');
+  mainWindow.setMenuBarVisibility(false);
 
   // Cacher au lieu de fermer
   mainWindow.on('close', (event) => {
@@ -284,19 +335,26 @@ function setupIpcHandlers() {
     return enabled;
   });
 
-  ipcMain.on('selection-complete', (event, bounds) => {
-    if (selectionWindow) {
-      selectionWindow.close();
+  ipcMain.on('selection-complete', async (event, bounds) => {
+    // Capturer d'abord, AVANT de fermer la fenêtre (qui efface le buffer)
+    if (bounds && bounds.width > 0 && bounds.height > 0) {
+      await captureSelection(bounds);
     }
 
-    if (bounds && bounds.width > 0 && bounds.height > 0) {
-      captureSelection(bounds);
+    if (selectionWindow) {
+      selectionWindow.close();
     }
   });
 
   ipcMain.on('selection-cancel', () => {
     if (selectionWindow) {
       selectionWindow.close();
+    }
+  });
+
+  ipcMain.on('close-window', () => {
+    if (mainWindow) {
+      mainWindow.close();
     }
   });
 }

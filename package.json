@@ -20,7 +20,7 @@
   "license": "ISC",
   "description": "Simple and fast screenshot capture tool for Windows",
   "build": {
-    "appId": "com.adrienlaugueux.smartprtscr",
+    "appId": "com.pleymor.smartprtscr",
     "productName": "Smart PrtScr",
     "win": {
       "target": [
@@ -41,10 +41,10 @@
       "signAndEditExecutable": false
     },
     "appx": {
-      "identityName": "AdrienLaugueux.SmartPrtScr",
-      "displayName": "Smart PrtScr",
-      "publisher": "CN=da96c756-2443-4440-a748-0d00a883ea5f",
-      "publisherDisplayName": "Adrien Laugueux",
+      "identityName": "Pleymor.smart-prtscr",
+      "displayName": "smart-prtscr",
+      "publisher": "CN=B79D1225-9D8B-4940-8036-D7FDBD5EA2D3",
+      "publisherDisplayName": "Pleymor",
       "applicationId": "SmartPrtScr",
       "languages": [
         "fr-FR",

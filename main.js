@@ -461,11 +461,8 @@ app.whenReady().then(async () => {
   // Configurer l'écouteur de touches
   setupKeyListener();
 
-  // Créer la fenêtre principale (masquée si démarrage auto)
-  const openAtLogin = app.getLoginItemSettings().openAtLogin;
-  if (!openAtLogin || !app.getLoginItemSettings().wasOpenedAsHidden) {
-    createMainWindow();
-  }
+  // Démarrer minimisé dans le tray (ne pas afficher la fenêtre principale)
+  // L'utilisateur peut ouvrir la fenêtre via double-clic sur l'icône tray
 
   app.on('activate', () => {
     createMainWindow();

@@ -46,7 +46,10 @@
       "publisher": "CN=da96c756-2443-4440-a748-0d00a883ea5f",
       "publisherDisplayName": "Adrien Laugueux",
       "applicationId": "SmartPrtScr",
-      "languages": ["fr-FR", "en-US"],
+      "languages": [
+        "fr-FR",
+        "en-US"
+      ],
       "backgroundColor": "#667eea"
     },
     "nsis": {
@@ -78,6 +81,7 @@
   "devDependencies": {
     "electron": "^33.3.1",
     "electron-builder": "^26.0.12",
+    "electron-windows-store": "^2.1.0",
     "png-to-ico": "^3.0.1"
   }
 }

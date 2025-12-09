@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, screen, Tray, Menu, nativeImage, desktopCapturer } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, Tray, Menu, nativeImage, desktopCapturer, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
@@ -232,6 +232,9 @@ async function saveScreenshotWithName(filename) {
 
     console.log(`Screenshot saved: ${fullPath}`);
 
+    // Ouvrir le dossier de destination
+    shell.openPath(savePath);
+
     // Notification via tray
     if (tray) {
       tray.displayBalloon({
@@ -316,7 +319,7 @@ function createTray() {
       label: 'Dossier de sauvegarde',
       click: () => {
         const savePath = getSavePath();
-        require('electron').shell.openPath(savePath);
+        shell.openPath(savePath);
       }
     },
     { type: 'separator' },

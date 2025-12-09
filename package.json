@@ -1,5 +1,5 @@
 {
-  "name": "snippy",
+  "name": "smart-prtscr",
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
@@ -14,14 +14,14 @@
     "screenshot",
     "printscreen",
     "capture",
-    "snippy"
+    "smart-prtscr"
   ],
   "author": "Adrien Laugueux",
   "license": "ISC",
   "description": "Simple and fast screenshot capture tool for Windows",
   "build": {
-    "appId": "com.adrienlaugueux.snippy",
-    "productName": "Snippy",
+    "appId": "com.adrienlaugueux.smartprtscr",
+    "productName": "Smart PrtScr",
     "win": {
       "target": [
         {
@@ -41,11 +41,11 @@
       "signAndEditExecutable": false
     },
     "appx": {
-      "identityName": "AdrienLaugueux.Snippy",
-      "displayName": "Snippy",
-      "publisher": "CN=Adrien Laugueux",
+      "identityName": "AdrienLaugueux.SmartPrtScr",
+      "displayName": "Smart PrtScr",
+      "publisher": "CN=da96c756-2443-4440-a748-0d00a883ea5f",
       "publisherDisplayName": "Adrien Laugueux",
-      "applicationId": "Snippy",
+      "applicationId": "SmartPrtScr",
       "languages": ["fr-FR", "en-US"],
       "backgroundColor": "#667eea"
     },
@@ -54,7 +54,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Snippy",
+      "shortcutName": "Smart PrtScr",
       "runAfterFinish": true
     },
     "files": [

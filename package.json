@@ -15,7 +15,7 @@
     "capture",
     "snippy"
   ],
-  "author": "Snippy",
+  "author": "Adrien Laugueux",
   "license": "ISC",
   "description": "Simple and fast screenshot capture tool for Windows",
   "build": {

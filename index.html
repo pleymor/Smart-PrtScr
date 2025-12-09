@@ -26,7 +26,7 @@
       position: relative;
       max-width: 500px;
       width: 100%;
-      height: 75%;
+      height: 85%;
     }
 
     .close-btn {
@@ -164,6 +164,16 @@
           <strong>Lancer automatiquement au démarrage de Windows</strong>
         </label>
       </div>
+      <div class="path-section" style="margin-top: 15px;">
+        <label>
+          <input type="checkbox" id="disableWindowsPrtScr" onchange="toggleWindowsPrtScr()">
+          <strong>Désactiver la capture d'écran Windows (recommandé)</strong>
+        </label>
+        <div class="info" style="margin-top: 10px; font-size: 12px;">
+          Désactive l'outil de capture Windows pour que Snippy gère PrintScreen exclusivement.
+          <br><em>Nécessite un redémarrage de Windows pour prendre effet.</em>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -227,9 +237,35 @@
       showNotification(`Capture sauvegardée : ${path}`);
     });
 
+    // Charger le statut de la capture Windows
+    async function loadWindowsPrtScr() {
+      try {
+        const disabled = await ipcRenderer.invoke('get-windows-prtscr-disabled');
+        document.getElementById('disableWindowsPrtScr').checked = disabled;
+      } catch (error) {
+        // Ignorer l'erreur, la checkbox reste décochée par défaut
+        document.getElementById('disableWindowsPrtScr').checked = false;
+      }
+    }
+
+    // Basculer la capture Windows
+    async function toggleWindowsPrtScr() {
+      const checkbox = document.getElementById('disableWindowsPrtScr');
+      const result = await ipcRenderer.invoke('set-windows-prtscr-disabled', checkbox.checked);
+      if (result.success) {
+        showNotification(checkbox.checked ?
+          'Capture Windows désactivée. Redémarrez Windows pour appliquer.' :
+          'Capture Windows réactivée. Redémarrez Windows pour appliquer.');
+      } else {
+        checkbox.checked = !checkbox.checked;
+        showNotification('Erreur: ' + result.error);
+      }
+    }
+
     // Charger au démarrage
     loadCurrentPath();
     loadAutoStart();
+    loadWindowsPrtScr();
   </script>
 </body>
 </html>

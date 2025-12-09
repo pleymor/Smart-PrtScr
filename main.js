@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, screen, Tray, Menu, nativeImage, de
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
+const { execSync } = require('child_process');
 
 let Store;
 let store;
@@ -259,7 +260,7 @@ function createMainWindow() {
 
   mainWindow = new BrowserWindow({
     width: 600,
-    height: 380,
+    height: 560,
     frame: false,
     resizable: false,
     webPreferences: {
@@ -385,6 +386,36 @@ function setupIpcHandlers() {
       openAsHidden: enabled
     });
     return enabled;
+  });
+
+  // Vérifier si la capture Windows est désactivée via le registre
+  ipcMain.handle('get-windows-prtscr-disabled', () => {
+    try {
+      const result = execSync(
+        'reg query "HKCU\\Control Panel\\Keyboard" /v PrintScreenKeyForSnippingEnabled',
+        { encoding: 'utf8', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }
+      );
+      // Si la valeur est 0x0, la capture Windows est désactivée
+      return result.includes('0x0');
+    } catch (error) {
+      // La clé n'existe pas, donc la capture Windows est activée par défaut
+      return false;
+    }
+  });
+
+  // Activer/désactiver la capture Windows via le registre
+  ipcMain.handle('set-windows-prtscr-disabled', (event, disabled) => {
+    try {
+      const value = disabled ? '0' : '1';
+      execSync(
+        `reg add "HKCU\\Control Panel\\Keyboard" /v PrintScreenKeyForSnippingEnabled /t REG_DWORD /d ${value} /f`,
+        { encoding: 'utf8', windowsHide: true }
+      );
+      return { success: true };
+    } catch (error) {
+      console.error('Error modifying registry:', error);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.on('selection-complete', async (event, bounds) => {

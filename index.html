@@ -151,8 +151,14 @@
         <button onclick="changePath()">Changer le dossier</button>
         <button onclick="resetPath()">Réinitialiser</button>
       </div>
+      <div class="path-section" style="margin-top: 15px;">
+        <label>
+          <input type="checkbox" id="autoStart" onchange="toggleAutoStart()">
+          <strong>Lancer automatiquement au démarrage de Windows</strong>
+        </label>
+      </div>
       <div class="info">
-        💡 Le dossier par défaut est le dossier "Captures d'écran" de Windows. Vos modifications sont sauvegardées automatiquement.
+        💡 Le dossier par défaut est le dossier "Captures d'écran" de Windows. L'application se minimise dans la barre des tâches. Vos modifications sont sauvegardées automatiquement.
       </div>
     </div>
   </div>
@@ -194,6 +200,19 @@
       }, 3000);
     }
 
+    // Charger le statut du démarrage automatique
+    async function loadAutoStart() {
+      const autoStart = await ipcRenderer.invoke('get-auto-start');
+      document.getElementById('autoStart').checked = autoStart;
+    }
+
+    // Basculer le démarrage automatique
+    async function toggleAutoStart() {
+      const checkbox = document.getElementById('autoStart');
+      await ipcRenderer.invoke('set-auto-start', checkbox.checked);
+      showNotification(checkbox.checked ? 'Démarrage automatique activé' : 'Démarrage automatique désactivé');
+    }
+
     // Écouter les captures d'écran réussies
     ipcRenderer.on('screenshot-saved', (event, path) => {
       showNotification(`Capture sauvegardée : ${path}`);
@@ -201,6 +220,7 @@
 
     // Charger au démarrage
     loadCurrentPath();
+    loadAutoStart();
   </script>
 </body>
 </html>

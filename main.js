@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const screenshot = require('screenshot-desktop');
@@ -11,6 +11,7 @@ let GlobalKeyboardListener;
 
 let mainWindow = null;
 let selectionWindow = null;
+let tray = null;
 let isCtrlPressed = false;
 
 // Obtenir le dossier par défaut (dossier Captures d'écran de Windows)
@@ -38,16 +39,14 @@ function generateFilename() {
   return `Screenshot_${timestamp}.png`;
 }
 
-// Ajouter l'horodatage dans le header de l'image (métadonnées EXIF)
+// Ajouter l'horodatage dans le header de l'image
 async function addTimestampToImage(imageBuffer) {
   const now = new Date();
   const timestamp = now.toLocaleString('fr-FR');
 
-  // Ajouter une bande en haut avec l'horodatage
   const metadata = await sharp(imageBuffer).metadata();
   const headerHeight = 30;
 
-  // Créer un header avec le timestamp
   const header = Buffer.from(
     `<svg width="${metadata.width}" height="${headerHeight}">
       <rect width="${metadata.width}" height="${headerHeight}" fill="#333333"/>
@@ -57,7 +56,6 @@ async function addTimestampToImage(imageBuffer) {
 
   const headerImage = await sharp(header).png().toBuffer();
 
-  // Combiner le header et l'image
   const finalImage = await sharp({
     create: {
       width: metadata.width,
@@ -82,17 +80,12 @@ async function captureActiveScreen() {
     const displays = screen.getAllDisplays();
     const cursorPoint = screen.getCursorScreenPoint();
 
-    // Trouver l'écran où se trouve le curseur
     const activeDisplay = screen.getDisplayNearestPoint(cursorPoint);
     const displayIndex = displays.findIndex(d => d.id === activeDisplay.id);
 
-    // Capturer l'écran actif
     const imgBuffer = await screenshot({ screen: displayIndex });
-
-    // Ajouter l'horodatage
     const finalImage = await addTimestampToImage(imgBuffer);
 
-    // Sauvegarder
     const savePath = getSavePath();
     const filename = generateFilename();
     const fullPath = path.join(savePath, filename);
@@ -101,7 +94,14 @@ async function captureActiveScreen() {
 
     console.log(`Screenshot saved: ${fullPath}`);
 
-    // Notification
+    // Notification via tray
+    if (tray) {
+      tray.displayBalloon({
+        title: 'Capture réussie',
+        content: `Sauvegardée : ${filename}`
+      });
+    }
+
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('screenshot-saved', fullPath);
     }
@@ -144,10 +144,8 @@ async function captureSelection(bounds) {
     const activeDisplay = screen.getDisplayNearestPoint(cursorPoint);
     const displayIndex = displays.findIndex(d => d.id === activeDisplay.id);
 
-    // Capturer l'écran complet
     const imgBuffer = await screenshot({ screen: displayIndex });
 
-    // Extraire la zone sélectionnée
     const croppedImage = await sharp(imgBuffer)
       .extract({
         left: Math.round(bounds.x),
@@ -157,10 +155,8 @@ async function captureSelection(bounds) {
       })
       .toBuffer();
 
-    // Ajouter l'horodatage
     const finalImage = await addTimestampToImage(croppedImage);
 
-    // Sauvegarder
     const savePath = getSavePath();
     const filename = generateFilename();
     const fullPath = path.join(savePath, filename);
@@ -169,7 +165,14 @@ async function captureSelection(bounds) {
 
     console.log(`Screenshot saved: ${fullPath}`);
 
-    // Notification
+    // Notification via tray
+    if (tray) {
+      tray.displayBalloon({
+        title: 'Capture réussie',
+        content: `Sauvegardée : ${filename}`
+      });
+    }
+
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('screenshot-saved', fullPath);
     }
@@ -180,20 +183,109 @@ async function captureSelection(bounds) {
 
 // Créer la fenêtre principale
 function createMainWindow() {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
+
   mainWindow = new BrowserWindow({
     width: 500,
-    height: 300,
+    height: 400,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     },
-    icon: path.join(__dirname, 'icon.png')
+    icon: path.join(__dirname, 'icon.ico')
   });
 
   mainWindow.loadFile('index.html');
 
+  // Cacher au lieu de fermer
+  mainWindow.on('close', (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+// Créer le system tray
+function createTray() {
+  // Créer une icône simple en PNG
+  const iconData = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAnElEQVR4nGNgGAWMDAwMDP///2dgYPjPwMDwn4GB4T8DQ8N/BgaG/wwMDP8ZGBj+MzAw/GdgYPjPwMDwn4GB4T8DA8N/BgaG/wwMDP8ZGBj+MzAw/GdgYPjPwMDwn4GB4T8DA8N/BgaG/wwMDP8ZGBj+MzAw/GdgYPjPwMDwn4GB4T8DA8N/BgaG/wwMDP8ZGBj+MzAw/GdgYPgPAAwMDAwAHhEI3KFxPLsAAAAASUVORK5CYII=',
+    'base64'
+  );
+
+  const trayIcon = nativeImage.createFromBuffer(iconData);
+
+  tray = new Tray(trayIcon);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Simple PrintScreen',
+      enabled: false
+    },
+    { type: 'separator' },
+    {
+      label: 'Ouvrir',
+      click: () => {
+        createMainWindow();
+      }
+    },
+    {
+      label: 'Capturer l\'écran',
+      click: () => {
+        captureActiveScreen();
+      }
+    },
+    {
+      label: 'Sélection',
+      click: () => {
+        createSelectionWindow();
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Dossier de sauvegarde',
+      click: () => {
+        const savePath = getSavePath();
+        require('electron').shell.openPath(savePath);
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Démarrage automatique',
+      type: 'checkbox',
+      checked: app.getLoginItemSettings().openAtLogin,
+      click: (item) => {
+        app.setLoginItemSettings({
+          openAtLogin: item.checked,
+          openAsHidden: item.checked
+        });
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quitter',
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setToolTip('Simple PrintScreen - Prêt');
+  tray.setContextMenu(contextMenu);
+
+  // Double-clic pour ouvrir la fenêtre
+  tray.on('double-click', () => {
+    createMainWindow();
   });
 }
 
@@ -221,6 +313,18 @@ function setupIpcHandlers() {
     const defaultPath = getDefaultScreenshotPath();
     store.set('screenshotPath', defaultPath);
     return defaultPath;
+  });
+
+  ipcMain.handle('get-auto-start', () => {
+    return app.getLoginItemSettings().openAtLogin;
+  });
+
+  ipcMain.handle('set-auto-start', (event, enabled) => {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      openAsHidden: enabled
+    });
+    return enabled;
   });
 
   ipcMain.on('selection-complete', (event, bounds) => {
@@ -253,11 +357,9 @@ function setupKeyListener() {
 
       if (e.name === 'PRINT SCREEN' && e.state === 'DOWN') {
         if (isCtrlPressed) {
-          // Ctrl + PrtScr : sélection rectangulaire
           console.log('Ctrl+PrtScr pressed - Opening selection window');
           createSelectionWindow();
         } else {
-          // PrtScr : capture de l'écran actif
           console.log('PrtScr pressed - Capturing active screen');
           captureActiveScreen();
         }
@@ -273,9 +375,12 @@ function setupKeyListener() {
 
 // Application lifecycle
 app.whenReady().then(async () => {
-  // Initialiser electron-store (module ES6)
+  // Initialiser electron-store
   Store = (await import('electron-store')).default;
   store = new Store();
+
+  // Créer le system tray
+  createTray();
 
   // Configurer les gestionnaires IPC
   setupIpcHandlers();
@@ -283,20 +388,24 @@ app.whenReady().then(async () => {
   // Configurer l'écouteur de touches
   setupKeyListener();
 
-  // Créer la fenêtre principale
-  createMainWindow();
+  // Créer la fenêtre principale (masquée si démarrage auto)
+  const openAtLogin = app.getLoginItemSettings().openAtLogin;
+  if (!openAtLogin || !app.getLoginItemSettings().wasOpenedAsHidden) {
+    createMainWindow();
+  }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
-    }
+    createMainWindow();
   });
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+// Ne pas quitter quand toutes les fenêtres sont fermées
+app.on('window-all-closed', (e) => {
+  e.preventDefault();
+});
+
+app.on('before-quit', () => {
+  app.isQuitting = true;
 });
 
 app.on('will-quit', () => {

@@ -4,16 +4,57 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "electron-builder --windows",
+    "build:portable": "electron-builder --windows portable",
+    "dist": "electron-builder"
   },
   "keywords": [
     "screenshot",
     "printscreen",
     "capture"
   ],
-  "author": "",
+  "author": "Simple PrintScreen",
   "license": "ISC",
   "description": "Logiciel de capture d'écran pour Windows avec support multi-écrans",
+  "build": {
+    "appId": "com.simple-printscreen.app",
+    "productName": "Simple PrintScreen",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Simple PrintScreen",
+      "runAfterFinish": true
+    },
+    "files": [
+      "main.js",
+      "index.html",
+      "selection.html",
+      "icon.ico",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    }
+  },
   "dependencies": {
     "electron-store": "^11.0.2",
     "node-global-key-listener": "^0.3.0",
@@ -21,6 +62,7 @@
     "sharp": "^0.34.5"
   },
   "devDependencies": {
-    "electron": "^33.3.1"
+    "electron": "^33.3.1",
+    "electron-builder": "^26.0.12"
   }
 }

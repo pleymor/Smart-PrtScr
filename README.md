@@ -1,8 +1,8 @@
 # Simple PrintScreen
 
-Logiciel de capture d'écran pour Windows avec support multi-écrans et horodatage automatique.
+Logiciel de capture d'écran pour Windows avec support multi-écrans, horodatage automatique et icône système.
 
-## Fonctionnalités
+## ✨ Fonctionnalités
 
 - 📸 **Capture de l'écran actif** : Appuyez sur `PrtScr` pour capturer l'écran où se trouve votre curseur
 - ✂️ **Sélection rectangulaire** : Appuyez sur `Ctrl+PrtScr` pour dessiner une zone personnalisée à capturer
@@ -10,74 +10,146 @@ Logiciel de capture d'écran pour Windows avec support multi-écrans et horodata
 - 🕐 **Horodatage automatique** : Chaque capture inclut un header avec la date et l'heure
 - 💾 **Configuration persistante** : Choisissez votre dossier de destination (sauvegarde automatique)
 - 🎯 **Dossier par défaut** : Utilise le dossier "Captures d'écran" de Windows par défaut
+- 🔔 **Icône système (System Tray)** : L'application se minimise dans la barre des tâches
+- 🚀 **Démarrage automatique** : Option pour lancer l'application au démarrage de Windows
+- 🔕 **Mode silencieux** : Fonctionne en arrière-plan sans fenêtre intrusive
 
-## Installation
+## 📥 Installation
+
+### Option 1 : Utiliser l'installateur (Recommandé pour utilisateurs finaux)
+
+1. Téléchargez le fichier `Simple PrintScreen Setup.exe` depuis les releases
+2. Exécutez l'installateur
+3. Suivez les instructions à l'écran
+4. L'application se lancera automatiquement après l'installation
+
+### Option 2 : Version portable (Sans installation)
+
+1. Téléchargez le fichier `Simple PrintScreen Portable.exe` depuis les releases
+2. Placez-le dans un dossier de votre choix
+3. Double-cliquez pour lancer
+
+### Option 3 : Développement (Pour les développeurs)
 
 1. Clonez ou téléchargez ce projet
-2. Ouvrez un terminal dans le dossier du projet
+2. Ouvrez **PowerShell** ou **CMD** dans le dossier du projet
 3. Installez les dépendances :
    ```bash
    npm install
    ```
-
-## Utilisation
-
-### Méthode 1 : Double-cliquer sur start.bat (Recommandé)
-1. Double-cliquez sur le fichier `start.bat` dans le dossier du projet
-2. L'application se lancera automatiquement
-
-### Méthode 2 : Ligne de commande
-1. Ouvrez **PowerShell** ou **l'Invite de commandes Windows** (PAS Git Bash)
-2. Naviguez vers le dossier du projet
-3. Exécutez :
-   ```cmd
+4. Lancez l'application :
+   ```bash
    npm start
    ```
 
-### Après le lancement
+## 🎯 Utilisation
 
-1. Une fenêtre de configuration s'ouvrira. Vous pouvez :
-   - Voir le dossier de destination actuel
-   - Changer le dossier de destination
-   - Réinitialiser au dossier par défaut
+### Première utilisation
 
-2. Utilisez les raccourcis clavier globaux :
-   - **PrtScr** : Capture l'écran actif (où se trouve le curseur)
-   - **Ctrl+PrtScr** : Ouvre une fenêtre de sélection pour capturer une zone spécifique
+1. Après l'installation, l'application démarre automatiquement
+2. Une fenêtre de configuration s'affiche
+3. Configurez vos préférences :
+   - **Dossier de sauvegarde** : Choisissez où sauvegarder vos captures
+   - **Démarrage automatique** : Cochez pour lancer au démarrage de Windows
+4. L'application se minimise dans la barre des tâches (icône près de l'horloge)
 
-## ⚠️ Note importante
+### Utilisation quotidienne
 
-**Sur Windows, vous DEVEZ utiliser PowerShell, CMD ou le fichier start.bat pour lancer l'application.**
-Git Bash/MSYS n'est pas compatible avec Electron sur Windows en raison de conflits de chemins.
+L'application fonctionne en arrière-plan. Utilisez simplement les raccourcis clavier :
 
-## Raccourcis clavier
+- **PrtScr** : Capture l'écran actif (où se trouve le curseur)
+- **Ctrl+PrtScr** : Ouvre une fenêtre de sélection pour capturer une zone spécifique
+- **Échap** : Annuler la sélection (en mode sélection)
+
+### Menu de l'icône système
+
+Clic droit sur l'icône dans la barre des tâches pour :
+- Ouvrir la fenêtre de configuration
+- Capturer l'écran directement
+- Ouvrir le mode sélection
+- Ouvrir le dossier de sauvegarde
+- Activer/désactiver le démarrage automatique
+- Quitter l'application
+
+## ⚙️ Configuration
+
+### Dossier de destination
+- **Par défaut** : `%USERPROFILE%\Pictures\Screenshots`
+- Modifiable via l'interface de configuration
+- Les modifications sont sauvegardées automatiquement
+
+### Démarrage automatique
+- Activez cette option pour que l'application démarre avec Windows
+- L'application se lance en mode masqué (icône système uniquement)
+- Accessible via l'interface ou le menu de l'icône système
+
+## 📸 Format des captures
+
+Les captures d'écran sont sauvegardées au format PNG avec :
+- Un header contenant l'horodatage (date et heure en français)
+- Nom de fichier : `Screenshot_YYYY-MM-DDTHH-MM-SS.png`
+- Qualité PNG maximale
+
+## 🛠️ Construction de l'installateur
+
+Pour les développeurs souhaitant créer l'installateur :
+
+```bash
+# Installer les dépendances
+npm install
+
+# Créer l'installateur Windows
+npm run build
+
+# Créer la version portable
+npm run build:portable
+
+# Créer les deux versions
+npm run dist
+```
+
+Les fichiers seront générés dans le dossier `dist/`.
+
+## 📋 Raccourcis clavier
 
 | Raccourci | Action |
 |-----------|--------|
 | `PrtScr` | Capture l'écran actif |
 | `Ctrl+PrtScr` | Sélection rectangulaire |
-| `Échap` | Annuler la sélection (en mode sélection) |
+| `Échap` | Annuler la sélection |
 
-## Configuration
+## ⚠️ Notes importantes
 
-- Le dossier de destination par défaut est : `%USERPROFILE%\Pictures\Screenshots`
-- Vous pouvez changer ce dossier via l'interface de configuration
-- Votre choix est sauvegardé automatiquement et persistera entre les sessions
+- **PowerShell/CMD requis** : Pour le développement, utilisez PowerShell ou CMD (Git Bash n'est pas compatible avec Electron sur Windows)
+- **Droits administrateur** : Peuvent être nécessaires pour la capture de touches globales sur certains systèmes
+- **Windows 10/11** : L'application est optimisée pour Windows 10 et 11
 
-## Format des captures
-
-Les captures d'écran sont sauvegardées au format PNG avec :
-- Un header contenant l'horodatage (date et heure)
-- Nom de fichier : `Screenshot_YYYY-MM-DDTHH-MM-SS.png`
-
-## Technologies utilisées
+## 💻 Technologies utilisées
 
 - **Electron** : Framework d'application desktop
 - **screenshot-desktop** : Capture d'écran multi-moniteurs
 - **sharp** : Traitement d'images
 - **node-global-key-listener** : Écoute des raccourcis clavier globaux
 - **electron-store** : Persistance de la configuration
+- **electron-builder** : Création de l'installateur Windows
 
-## Licence
+## 📦 Distribution via le Windows Store
+
+L'application est en cours de soumission au Microsoft Store. En attendant, utilisez les installateurs disponibles dans les releases GitHub.
+
+## 🐛 Problèmes connus
+
+- Sur certains systèmes, les droits administrateur peuvent être nécessaires pour capturer les touches globales
+- L'icône système peut ne pas s'afficher correctement si Windows Explorer est redémarré (relancer l'application)
+
+## 📝 Licence
 
 ISC
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
+
+## 📧 Support
+
+Pour toute question ou problème, ouvrez une issue sur GitHub.

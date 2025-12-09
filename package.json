@@ -1,0 +1,26 @@
+{
+  "name": "simple-printscreen",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "screenshot",
+    "printscreen",
+    "capture"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "Logiciel de capture d'écran pour Windows avec support multi-écrans",
+  "dependencies": {
+    "electron-store": "^11.0.2",
+    "node-global-key-listener": "^0.3.0",
+    "screenshot-desktop": "^1.15.3",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "electron": "^33.3.1"
+  }
+}

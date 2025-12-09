@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Simple PrintScreen</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      margin: 0;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      color: #333;
+    }
+
+    h1 {
+      margin-top: 0;
+      color: #667eea;
+      font-size: 24px;
+    }
+
+    .section {
+      margin-bottom: 25px;
+    }
+
+    .section h2 {
+      font-size: 16px;
+      margin-bottom: 10px;
+      color: #555;
+    }
+
+    .shortcut {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .shortcut kbd {
+      background: white;
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid #ccc;
+      font-family: monospace;
+      font-weight: bold;
+      box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .path-section {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+
+    .path-display {
+      background: white;
+      padding: 10px;
+      border-radius: 3px;
+      border: 1px solid #ddd;
+      margin: 10px 0;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #5568d3;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #4caf50;
+      color: white;
+      padding: 15px 20px;
+      border-radius: 5px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: none;
+      animation: slideIn 0.3s ease-out;
+      max-width: 300px;
+      word-break: break-all;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .info {
+      background: #e3f2fd;
+      padding: 10px;
+      border-radius: 5px;
+      border-left: 4px solid #2196f3;
+      margin-top: 15px;
+      font-size: 13px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📸 Simple PrintScreen</h1>
+
+    <div class="section">
+      <h2>Raccourcis clavier</h2>
+      <div class="shortcut">
+        <kbd>PrtScr</kbd> - Capture l'écran actif (où se trouve le curseur)
+      </div>
+      <div class="shortcut">
+        <kbd>Ctrl</kbd> + <kbd>PrtScr</kbd> - Sélection rectangulaire personnalisée
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Configuration</h2>
+      <div class="path-section">
+        <label><strong>Dossier de destination :</strong></label>
+        <div class="path-display" id="currentPath">Chargement...</div>
+        <button onclick="changePath()">Changer le dossier</button>
+        <button onclick="resetPath()">Réinitialiser</button>
+      </div>
+      <div class="info">
+        💡 Le dossier par défaut est le dossier "Captures d'écran" de Windows. Vos modifications sont sauvegardées automatiquement.
+      </div>
+    </div>
+  </div>
+
+  <div class="notification" id="notification"></div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    // Charger le chemin actuel au démarrage
+    async function loadCurrentPath() {
+      const path = await ipcRenderer.invoke('get-save-path');
+      document.getElementById('currentPath').textContent = path;
+    }
+
+    // Changer le dossier de destination
+    async function changePath() {
+      const newPath = await ipcRenderer.invoke('set-save-path');
+      if (newPath) {
+        document.getElementById('currentPath').textContent = newPath;
+        showNotification('Dossier modifié avec succès !');
+      }
+    }
+
+    // Réinitialiser au dossier par défaut
+    async function resetPath() {
+      const defaultPath = await ipcRenderer.invoke('reset-save-path');
+      document.getElementById('currentPath').textContent = defaultPath;
+      showNotification('Dossier réinitialisé au dossier par défaut');
+    }
+
+    // Afficher une notification
+    function showNotification(message) {
+      const notif = document.getElementById('notification');
+      notif.textContent = message;
+      notif.style.display = 'block';
+      setTimeout(() => {
+        notif.style.display = 'none';
+      }, 3000);
+    }
+
+    // Écouter les captures d'écran réussies
+    ipcRenderer.on('screenshot-saved', (event, path) => {
+      showNotification(`Capture sauvegardée : ${path}`);
+    });
+
+    // Charger au démarrage
+    loadCurrentPath();
+  </script>
+</body>
+</html>

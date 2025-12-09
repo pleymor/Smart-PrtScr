@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Sélection de zone</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      cursor: crosshair;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .instruction {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 20px 40px;
+      border-radius: 10px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 18px;
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+    }
+
+    .instruction.show {
+      display: block;
+    }
+
+    .help {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 14px;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div class="instruction" id="instruction">Dessinez un rectangle pour sélectionner la zone</div>
+  <div class="help">Cliquez et glissez pour sélectionner une zone | Échap pour annuler</div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Configurer le canvas en plein écran
+    canvas.width = window.screen.width;
+    canvas.height = window.screen.height;
+
+    let isDrawing = false;
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let currentY = 0;
+
+    // Afficher les instructions au début
+    const instruction = document.getElementById('instruction');
+    instruction.classList.add('show');
+    setTimeout(() => {
+      instruction.classList.remove('show');
+    }, 2000);
+
+    // Dessiner le rectangle de sélection
+    function drawSelection() {
+      // Effacer le canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!isDrawing) return;
+
+      const x = Math.min(startX, currentX);
+      const y = Math.min(startY, currentY);
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+
+      // Dessiner le rectangle de sélection
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, width, height);
+
+      // Remplissage semi-transparent
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+      ctx.fillRect(x, y, width, height);
+
+      // Afficher les dimensions
+      ctx.fillStyle = 'white';
+      ctx.font = '14px Arial';
+      ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + 5, y + 20);
+    }
+
+    // Événements de souris
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      currentX = e.clientX;
+      currentY = e.clientY;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      currentX = e.clientX;
+      currentY = e.clientY;
+      drawSelection();
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (!isDrawing) return;
+      isDrawing = false;
+
+      const x = Math.min(startX, currentX);
+      const y = Math.min(startY, currentY);
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+
+      // Envoyer les coordonnées au processus principal
+      if (width > 5 && height > 5) {
+        ipcRenderer.send('selection-complete', { x, y, width, height });
+      } else {
+        ipcRenderer.send('selection-cancel');
+      }
+    });
+
+    // Touche Échap pour annuler
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        ipcRenderer.send('selection-cancel');
+      }
+    });
+  </script>
+</body>
+</html>

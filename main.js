@@ -287,15 +287,10 @@ function createMainWindow() {
 
 // Créer le system tray
 function createTray() {
-  // Créer une icône simple en PNG
-  const iconData = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAnElEQVR4nGNgGAWMDAwMDP///2dgYPjPwMDwn4GB4T8DQ8N/BgaG/wwMDP8ZGBj+MzAw/GdgYPjPwMDwn4GB4T8DA8N/BgaG/wwMDP8ZGBj+MzAw/GdgYPjPwMDwn4GB4T8DA8N/BgaG/wwMDP8ZGBj+MzAw/GdgYPjPwMDwn4GB4T8DA8N/BgaG/wwMDP8ZGBj+MzAw/GdgYPgPAAwMDAwAHhEI3KFxPLsAAAAASUVORK5CYII=',
-    'base64'
-  );
+  // Utiliser l'icône de l'application
+  const iconPath = path.join(__dirname, 'icon.ico');
 
-  const trayIcon = nativeImage.createFromBuffer(iconData);
-
-  tray = new Tray(trayIcon);
+  tray = new Tray(iconPath);
 
   const contextMenu = Menu.buildFromTemplate([
     {

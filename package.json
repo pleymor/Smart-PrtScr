@@ -35,7 +35,8 @@
           ]
         }
       ],
-      "icon": "icon.ico"
+      "icon": "icon.ico",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
@@ -50,7 +51,8 @@
       "index.html",
       "selection.html",
       "icon.ico",
-      "package.json"
+      "package.json",
+      "!node_modules/node-global-key-listener/bin/MacKeyServer"
     ],
     "directories": {
       "output": "dist"

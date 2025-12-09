@@ -17,13 +17,13 @@ const manifest = `<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
-  <Identity Name="AdrienLaugueux.SmartPrtScr"
-            Publisher="CN=da96c756-2443-4440-a748-0d00a883ea5f"
+  <Identity Name="Pleymor.smart-prtscr"
+            Publisher="CN=B79D1225-9D8B-4940-8036-D7FDBD5EA2D3"
             Version="1.0.0.0"
             ProcessorArchitecture="x64" />
   <Properties>
-    <DisplayName>Smart PrtScr</DisplayName>
-    <PublisherDisplayName>Adrien Laugueux</PublisherDisplayName>
+    <DisplayName>smart-prtscr</DisplayName>
+    <PublisherDisplayName>Pleymor</PublisherDisplayName>
     <Logo>Assets\\StoreLogo.png</Logo>
   </Properties>
   <Dependencies>
@@ -37,7 +37,7 @@ const manifest = `<?xml version="1.0" encoding="utf-8"?>
     <Application Id="SmartPrtScr"
                  Executable="Smart PrtScr.exe"
                  EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="Smart PrtScr"
+      <uap:VisualElements DisplayName="smart-prtscr"
                           Description="Simple and fast screenshot capture tool for Windows"
                           BackgroundColor="#667eea"
                           Square150x150Logo="Assets\\Square150x150Logo.png"

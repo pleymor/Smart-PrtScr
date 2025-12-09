@@ -17,6 +17,10 @@ main-simple.js
 main-old.js
 nul
 
+# Icon generation
+generate-icon.js
+icon-*.png
+
 # IDE and editor files
 .claude/
 .vscode/

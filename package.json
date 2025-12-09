@@ -4,6 +4,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "generate-icon": "node generate-icon.js",
     "build": "electron-builder --windows",
     "build:portable": "electron-builder --windows portable",
     "dist": "electron-builder"
@@ -63,6 +64,7 @@
   },
   "devDependencies": {
     "electron": "^33.3.1",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "png-to-ico": "^3.0.1"
   }
 }

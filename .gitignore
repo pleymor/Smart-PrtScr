@@ -8,21 +8,9 @@ node_modules/
 dist/
 build/
 *.asar
-
-# Debug and test files
-debug.js
-minimal.js
-test.js
-main-simple.js
-main-old.js
-nul
-
-# Icon generation
-generate-icon.js
-icon-*.png
+*.appx
 
 # IDE and editor files
-.claude/
 .vscode/
 .idea/
 *.swp
@@ -35,3 +23,4 @@ icon-*.png
 # OS files
 .DS_Store
 Thumbs.db
+nul

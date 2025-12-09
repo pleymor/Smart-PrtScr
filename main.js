@@ -299,7 +299,7 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Simple PrintScreen',
+      label: 'Snippy',
       enabled: false
     },
     { type: 'separator' },
@@ -345,7 +345,7 @@ function createTray() {
     }
   ]);
 
-  tray.setToolTip('Simple PrintScreen - Prêt');
+  tray.setToolTip('Snippy - Ready');
   tray.setContextMenu(contextMenu);
 
   // Double-clic pour ouvrir la fenêtre

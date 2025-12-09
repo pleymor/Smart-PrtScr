@@ -1,5 +1,5 @@
 {
-  "name": "simple-printscreen",
+  "name": "snippy",
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
@@ -12,14 +12,15 @@
   "keywords": [
     "screenshot",
     "printscreen",
-    "capture"
+    "capture",
+    "snippy"
   ],
-  "author": "Simple PrintScreen",
+  "author": "Snippy",
   "license": "ISC",
-  "description": "Logiciel de capture d'écran pour Windows avec support multi-écrans",
+  "description": "Simple and fast screenshot capture tool for Windows",
   "build": {
-    "appId": "com.simple-printscreen.app",
-    "productName": "Simple PrintScreen",
+    "appId": "com.snippy.app",
+    "productName": "Snippy",
     "win": {
       "target": [
         {
@@ -43,13 +44,14 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Simple PrintScreen",
+      "shortcutName": "Snippy",
       "runAfterFinish": true
     },
     "files": [
       "main.js",
       "index.html",
       "selection.html",
+      "filename-dialog.html",
       "icon.ico",
       "package.json",
       "!node_modules/node-global-key-listener/bin/MacKeyServer"

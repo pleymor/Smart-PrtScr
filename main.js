@@ -10,8 +10,10 @@ let GlobalKeyboardListener;
 
 let mainWindow = null;
 let selectionWindow = null;
+let filenameDialog = null;
 let tray = null;
 let currentScreenshotBuffer = null; // Stocker la capture actuelle
+let pendingScreenshot = null; // Image en attente de nom de fichier
 
 // Obtenir le dossier par défaut (dossier Captures d'écran de Windows)
 function getDefaultScreenshotPath() {
@@ -31,11 +33,11 @@ function getSavePath() {
   return store.get('screenshotPath', getDefaultScreenshotPath());
 }
 
-// Générer un nom de fichier avec horodatage
-function generateFilename() {
+// Générer un nom de fichier avec horodatage (sans extension)
+function generateDefaultFilename() {
   const now = new Date();
   const timestamp = now.toISOString().replace(/:/g, '-').replace(/\..+/, '');
-  return `Screenshot_${timestamp}.png`;
+  return `Screenshot_${timestamp}`;
 }
 
 // Ajouter l'horodatage dans le header de l'image
@@ -143,7 +145,7 @@ async function createSelectionWindow() {
   }
 }
 
-// Capturer la sélection
+// Capturer la sélection et ouvrir le dialogue de nom
 async function captureSelection(bounds) {
   try {
     // Utiliser la capture déjà prise (sans l'overlay)
@@ -163,16 +165,69 @@ async function captureSelection(bounds) {
 
     const finalImage = await addTimestampToImage(croppedImage);
 
+    // Stocker l'image en attente et ouvrir le dialogue
+    pendingScreenshot = {
+      image: finalImage,
+      defaultFilename: generateDefaultFilename()
+    };
+
+    openFilenameDialog();
+  } catch (error) {
+    console.error('Error capturing selection:', error);
+  }
+}
+
+// Ouvrir le dialogue pour le nom de fichier
+function openFilenameDialog() {
+  if (filenameDialog) {
+    filenameDialog.focus();
+    return;
+  }
+
+  filenameDialog = new BrowserWindow({
+    width: 450,
+    height: 180,
+    frame: false,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+
+  filenameDialog.loadFile('filename-dialog.html');
+
+  filenameDialog.webContents.on('did-finish-load', () => {
+    if (pendingScreenshot) {
+      filenameDialog.webContents.send('default-filename', pendingScreenshot.defaultFilename);
+    }
+  });
+
+  filenameDialog.on('closed', () => {
+    filenameDialog = null;
+  });
+}
+
+// Sauvegarder la capture avec le nom choisi
+async function saveScreenshotWithName(filename) {
+  if (!pendingScreenshot) {
+    console.error('No pending screenshot to save');
+    return;
+  }
+
+  try {
     const savePath = getSavePath();
-    const filename = generateFilename();
-    const fullPath = path.join(savePath, filename);
+    const fullFilename = `${filename}.png`;
+    const fullPath = path.join(savePath, fullFilename);
 
     // Vérifier que le dossier existe
     if (!fs.existsSync(savePath)) {
       fs.mkdirSync(savePath, { recursive: true });
     }
 
-    await sharp(finalImage).toFile(fullPath);
+    await sharp(pendingScreenshot.image).toFile(fullPath);
 
     console.log(`Screenshot saved: ${fullPath}`);
 
@@ -180,7 +235,7 @@ async function captureSelection(bounds) {
     if (tray) {
       tray.displayBalloon({
         title: 'Capture réussie',
-        content: `Sauvegardée : ${filename}`
+        content: `Sauvegardée : ${fullFilename}`
       });
     }
 
@@ -188,7 +243,9 @@ async function captureSelection(bounds) {
       mainWindow.webContents.send('screenshot-saved', fullPath);
     }
   } catch (error) {
-    console.error('Error capturing selection:', error);
+    console.error('Error saving screenshot:', error);
+  } finally {
+    pendingScreenshot = null;
   }
 }
 
@@ -356,6 +413,21 @@ function setupIpcHandlers() {
     if (mainWindow) {
       mainWindow.close();
     }
+  });
+
+  // Gestionnaires pour le dialogue de nom de fichier
+  ipcMain.on('filename-submit', async (event, filename) => {
+    if (filenameDialog) {
+      filenameDialog.close();
+    }
+    await saveScreenshotWithName(filename);
+  });
+
+  ipcMain.on('filename-cancel', () => {
+    if (filenameDialog) {
+      filenameDialog.close();
+    }
+    pendingScreenshot = null;
   });
 }
 

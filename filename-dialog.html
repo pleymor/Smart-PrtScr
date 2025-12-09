@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Nom du fichier</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      width: 400px;
+    }
+
+    h2 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #667eea;
+    }
+
+    .extension {
+      color: #666;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-cancel {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .btn-cancel:hover {
+      background: #d0d0d0;
+    }
+
+    .btn-save {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-save:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .hint {
+      color: #888;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Nom de la capture</h2>
+    <div class="input-group">
+      <input type="text" id="filename" autofocus>
+      <span class="extension">.png</span>
+    </div>
+    <p class="hint">Laissez vide pour utiliser le nom par defaut</p>
+    <div class="buttons">
+      <button class="btn-cancel" onclick="cancel()">Annuler</button>
+      <button class="btn-save" onclick="save()">Enregistrer</button>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const input = document.getElementById('filename');
+
+    // Recevoir le nom par défaut
+    ipcRenderer.on('default-filename', (event, defaultName) => {
+      input.placeholder = defaultName;
+    });
+
+    function save() {
+      const filename = input.value.trim() || input.placeholder;
+      ipcRenderer.send('filename-submit', filename);
+    }
+
+    function cancel() {
+      ipcRenderer.send('filename-cancel');
+    }
+
+    // Enter pour sauvegarder, Escape pour annuler
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        save();
+      } else if (e.key === 'Escape') {
+        cancel();
+      }
+    });
+  </script>
+</body>
+</html>

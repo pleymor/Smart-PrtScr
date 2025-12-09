@@ -1,10 +1,33 @@
+# Dependencies
 node_modules/
+
+# Logs
 *.log
-.DS_Store
+
+# Build output
 dist/
 build/
 *.asar
-.env
+
+# Debug and test files
+debug.js
+minimal.js
+test.js
+main-simple.js
+main-old.js
+nul
+
+# IDE and editor files
+.claude/
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
+
+# Environment files
+.env
+
+# OS files
+.DS_Store
+Thumbs.db

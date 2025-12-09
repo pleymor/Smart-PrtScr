@@ -186,8 +186,8 @@ function openFilenameDialog() {
   }
 
   filenameDialog = new BrowserWindow({
-    width: 450,
-    height: 180,
+    width: 550,
+    height: 520,
     frame: false,
     resizable: false,
     alwaysOnTop: true,
@@ -203,6 +203,9 @@ function openFilenameDialog() {
   filenameDialog.webContents.on('did-finish-load', () => {
     if (pendingScreenshot) {
       filenameDialog.webContents.send('default-filename', pendingScreenshot.defaultFilename);
+      // Envoyer l'aperçu de l'image
+      const base64Image = pendingScreenshot.image.toString('base64');
+      filenameDialog.webContents.send('preview-image', base64Image);
     }
   });
 

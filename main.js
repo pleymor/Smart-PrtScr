@@ -12,7 +12,6 @@ let GlobalKeyboardListener;
 let mainWindow = null;
 let selectionWindow = null;
 let tray = null;
-let isCtrlPressed = false;
 
 // Obtenir le dossier par défaut (dossier Captures d'écran de Windows)
 function getDefaultScreenshotPath() {
@@ -72,42 +71,6 @@ async function addTimestampToImage(imageBuffer) {
   .toBuffer();
 
   return finalImage;
-}
-
-// Capturer l'écran actif
-async function captureActiveScreen() {
-  try {
-    const displays = screen.getAllDisplays();
-    const cursorPoint = screen.getCursorScreenPoint();
-
-    const activeDisplay = screen.getDisplayNearestPoint(cursorPoint);
-    const displayIndex = displays.findIndex(d => d.id === activeDisplay.id);
-
-    const imgBuffer = await screenshot({ screen: displayIndex });
-    const finalImage = await addTimestampToImage(imgBuffer);
-
-    const savePath = getSavePath();
-    const filename = generateFilename();
-    const fullPath = path.join(savePath, filename);
-
-    await sharp(finalImage).toFile(fullPath);
-
-    console.log(`Screenshot saved: ${fullPath}`);
-
-    // Notification via tray
-    if (tray) {
-      tray.displayBalloon({
-        title: 'Capture réussie',
-        content: `Sauvegardée : ${filename}`
-      });
-    }
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('screenshot-saved', fullPath);
-    }
-  } catch (error) {
-    console.error('Error capturing screen:', error);
-  }
 }
 
 // Créer la fenêtre de sélection
@@ -239,13 +202,7 @@ function createTray() {
       }
     },
     {
-      label: 'Capturer l\'écran',
-      click: () => {
-        captureActiveScreen();
-      }
-    },
-    {
-      label: 'Sélection',
+      label: 'Capturer (sélection)',
       click: () => {
         createSelectionWindow();
       }
@@ -350,19 +307,10 @@ function setupKeyListener() {
     GlobalKeyboardListener = require('node-global-key-listener').GlobalKeyboardListener;
     gkl = new GlobalKeyboardListener();
 
-    gkl.addListener((e, down) => {
-      if (e.name === 'LEFT CTRL' || e.name === 'RIGHT CTRL') {
-        isCtrlPressed = down['LEFT CTRL'] || down['RIGHT CTRL'];
-      }
-
+    gkl.addListener((e) => {
       if (e.name === 'PRINT SCREEN' && e.state === 'DOWN') {
-        if (isCtrlPressed) {
-          console.log('Ctrl+PrtScr pressed - Opening selection window');
-          createSelectionWindow();
-        } else {
-          console.log('PrtScr pressed - Capturing active screen');
-          captureActiveScreen();
-        }
+        console.log('PrtScr pressed - Opening selection window');
+        createSelectionWindow();
       }
     });
 

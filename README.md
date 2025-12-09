@@ -4,8 +4,7 @@ Logiciel de capture d'écran pour Windows avec support multi-écrans, horodatage
 
 ## ✨ Fonctionnalités
 
-- 📸 **Capture de l'écran actif** : Appuyez sur `PrtScr` pour capturer l'écran où se trouve votre curseur
-- ✂️ **Sélection rectangulaire** : Appuyez sur `Ctrl+PrtScr` pour dessiner une zone personnalisée à capturer
+- ✂️ **Sélection rectangulaire** : Appuyez sur `PrtScr` pour dessiner une zone personnalisée à capturer
 - 🖥️ **Multi-écrans** : Support complet des configurations multi-moniteurs
 - 🕐 **Horodatage automatique** : Chaque capture inclut un header avec la date et l'heure
 - 💾 **Configuration persistante** : Choisissez votre dossier de destination (sauvegarde automatique)
@@ -55,18 +54,16 @@ Logiciel de capture d'écran pour Windows avec support multi-écrans, horodatage
 
 ### Utilisation quotidienne
 
-L'application fonctionne en arrière-plan. Utilisez simplement les raccourcis clavier :
+L'application fonctionne en arrière-plan. Utilisez simplement le raccourci clavier :
 
-- **PrtScr** : Capture l'écran actif (où se trouve le curseur)
-- **Ctrl+PrtScr** : Ouvre une fenêtre de sélection pour capturer une zone spécifique
-- **Échap** : Annuler la sélection (en mode sélection)
+- **PrtScr** : Ouvre une fenêtre de sélection pour dessiner la zone à capturer
+- **Échap** : Annuler la sélection
 
 ### Menu de l'icône système
 
 Clic droit sur l'icône dans la barre des tâches pour :
 - Ouvrir la fenêtre de configuration
-- Capturer l'écran directement
-- Ouvrir le mode sélection
+- Capturer avec sélection
 - Ouvrir le dossier de sauvegarde
 - Activer/désactiver le démarrage automatique
 - Quitter l'application
@@ -114,8 +111,7 @@ Les fichiers seront générés dans le dossier `dist/`.
 
 | Raccourci | Action |
 |-----------|--------|
-| `PrtScr` | Capture l'écran actif |
-| `Ctrl+PrtScr` | Sélection rectangulaire |
+| `PrtScr` | Sélection rectangulaire |
 | `Échap` | Annuler la sélection |
 
 ## ⚠️ Notes importantes

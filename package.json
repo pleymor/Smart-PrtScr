@@ -7,6 +7,7 @@
     "generate-icon": "node generate-icon.js",
     "build": "electron-builder --windows",
     "build:portable": "electron-builder --windows portable",
+    "build:appx": "electron-builder --windows appx",
     "dist": "electron-builder"
   },
   "keywords": [
@@ -19,7 +20,7 @@
   "license": "ISC",
   "description": "Simple and fast screenshot capture tool for Windows",
   "build": {
-    "appId": "com.snippy.app",
+    "appId": "com.adrienlaugueux.snippy",
     "productName": "Snippy",
     "win": {
       "target": [
@@ -38,6 +39,15 @@
       ],
       "icon": "icon.ico",
       "signAndEditExecutable": false
+    },
+    "appx": {
+      "identityName": "AdrienLaugueux.Snippy",
+      "displayName": "Snippy",
+      "publisher": "CN=Adrien Laugueux",
+      "publisherDisplayName": "Adrien Laugueux",
+      "applicationId": "Snippy",
+      "languages": ["fr-FR", "en-US"],
+      "backgroundColor": "#667eea"
     },
     "nsis": {
       "oneClick": false,

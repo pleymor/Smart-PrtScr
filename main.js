@@ -202,7 +202,7 @@ function createTray() {
       }
     },
     {
-      label: 'Capturer (sélection)',
+      label: 'Capturer (PrtScr)',
       click: () => {
         createSelectionWindow();
       }

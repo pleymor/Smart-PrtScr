@@ -41,34 +41,34 @@ function generateDefaultFilename() {
   return `Screenshot_${timestamp}`;
 }
 
-// Ajouter l'horodatage dans le header de l'image
+// Ajouter l'horodatage dans le footer de l'image
 async function addTimestampToImage(imageBuffer) {
   const now = new Date();
   const timestamp = now.toLocaleString('fr-FR');
 
   const metadata = await sharp(imageBuffer).metadata();
-  const headerHeight = 30;
+  const footerHeight = 30;
 
-  const header = Buffer.from(
-    `<svg width="${metadata.width}" height="${headerHeight}">
-      <rect width="${metadata.width}" height="${headerHeight}" fill="#333333"/>
-      <text x="10" y="20" font-family="Arial" font-size="14" fill="white">${timestamp}</text>
+  const footer = Buffer.from(
+    `<svg width="${metadata.width}" height="${footerHeight}">
+      <rect width="${metadata.width}" height="${footerHeight}" fill="#333333"/>
+      <text x="50%" y="20" font-family="Arial" font-size="14" fill="white" text-anchor="middle">${timestamp}</text>
     </svg>`
   );
 
-  const headerImage = await sharp(header).png().toBuffer();
+  const footerImage = await sharp(footer).png().toBuffer();
 
   const finalImage = await sharp({
     create: {
       width: metadata.width,
-      height: metadata.height + headerHeight,
+      height: metadata.height + footerHeight,
       channels: 4,
       background: { r: 255, g: 255, b: 255, alpha: 1 }
     }
   })
   .composite([
-    { input: headerImage, top: 0, left: 0 },
-    { input: imageBuffer, top: headerHeight, left: 0 }
+    { input: imageBuffer, top: 0, left: 0 },
+    { input: footerImage, top: metadata.height, left: 0 }
   ])
   .png()
   .toBuffer();

@@ -9,13 +9,24 @@
       padding: 0;
       overflow: hidden;
       cursor: crosshair;
-      background: rgba(0, 0, 0, 0.3);
+      background: #000;
+    }
+
+    #screenshot {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: brightness(0.7);
     }
 
     #canvas {
       position: absolute;
       top: 0;
       left: 0;
+      z-index: 10;
     }
 
     .instruction {
@@ -54,6 +65,7 @@
   </style>
 </head>
 <body>
+  <img id="screenshot" />
   <canvas id="canvas"></canvas>
   <div class="instruction" id="instruction">Dessinez un rectangle pour sélectionner la zone</div>
   <div class="help">Cliquez et glissez pour sélectionner une zone | Échap pour annuler</div>
@@ -62,6 +74,7 @@
     const { ipcRenderer } = require('electron');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const screenshotImg = document.getElementById('screenshot');
 
     // Configurer le canvas en plein écran
     canvas.width = window.screen.width;
@@ -72,6 +85,11 @@
     let startY = 0;
     let currentX = 0;
     let currentY = 0;
+
+    // Recevoir la capture d'écran
+    ipcRenderer.on('screenshot-data', (event, base64Image) => {
+      screenshotImg.src = 'data:image/png;base64,' + base64Image;
+    });
 
     // Afficher les instructions au début
     const instruction = document.getElementById('instruction');

@@ -10,6 +10,11 @@
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       margin: 0;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      align-items: top;
+      justify-content: center;
     }
 
     .container {
@@ -18,40 +23,51 @@
       padding: 30px;
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
       color: #333;
+      position: relative;
+      max-width: 500px;
+      width: 100%;
+      height: 75%;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 30px;
+      padding: 0;
+      transition: background 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .close-btn:hover {
+      background: #c0392b;
     }
 
     h1 {
       margin-top: 0;
       color: #667eea;
       font-size: 24px;
+      padding-right: 40px;
     }
 
     .section {
-      margin-bottom: 25px;
+      margin-bottom: 20px;
     }
 
     .section h2 {
       font-size: 16px;
       margin-bottom: 10px;
       color: #555;
-    }
-
-    .shortcut {
-      background: #f0f0f0;
-      padding: 10px;
-      border-radius: 5px;
-      margin-bottom: 8px;
-      border-left: 4px solid #667eea;
-    }
-
-    .shortcut kbd {
-      background: white;
-      padding: 3px 8px;
-      border-radius: 3px;
-      border: 1px solid #ccc;
-      font-family: monospace;
-      font-weight: bold;
-      box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
     }
 
     .path-section {
@@ -131,14 +147,8 @@
 </head>
 <body>
   <div class="container">
+    <button class="close-btn" onclick="closeWindow()" title="Fermer">×</button>
     <h1>📸 Simple PrintScreen</h1>
-
-    <div class="section">
-      <h2>Raccourci clavier</h2>
-      <div class="shortcut">
-        <kbd>PrtScr</kbd> - Ouvre une fenêtre pour dessiner la zone à capturer
-      </div>
-    </div>
 
     <div class="section">
       <h2>Configuration</h2>
@@ -153,9 +163,6 @@
           <input type="checkbox" id="autoStart" onchange="toggleAutoStart()">
           <strong>Lancer automatiquement au démarrage de Windows</strong>
         </label>
-      </div>
-      <div class="info">
-        💡 Le dossier par défaut est le dossier "Captures d'écran" de Windows. L'application se minimise dans la barre des tâches. Vos modifications sont sauvegardées automatiquement.
       </div>
     </div>
   </div>
@@ -208,6 +215,11 @@
       const checkbox = document.getElementById('autoStart');
       await ipcRenderer.invoke('set-auto-start', checkbox.checked);
       showNotification(checkbox.checked ? 'Démarrage automatique activé' : 'Démarrage automatique désactivé');
+    }
+
+    // Fermer la fenêtre
+    function closeWindow() {
+      ipcRenderer.send('close-window');
     }
 
     // Écouter les captures d'écran réussies

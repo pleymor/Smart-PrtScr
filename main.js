@@ -61,6 +61,16 @@ function getDefaultTimestampOptions() {
   };
 }
 
+// Obtenir le format d'image par défaut
+function getDefaultImageFormat() {
+  return 'jpg'; // 'jpg' ou 'png'
+}
+
+// Obtenir le format d'image configuré
+function getImageFormat() {
+  return store.get('imageFormat', getDefaultImageFormat());
+}
+
 // Obtenir les options d'horodatage configurées
 function getTimestampOptions() {
   const defaults = getDefaultTimestampOptions();
@@ -81,17 +91,28 @@ const textColors = {
 };
 
 
+// Convertir l'image au format choisi
+async function convertToFormat(sharpInstance, format) {
+  if (format === 'png') {
+    return sharpInstance.png().toBuffer();
+  } else {
+    return sharpInstance.jpeg({ quality: 99 }).toBuffer();
+  }
+}
+
 // Ajouter l'horodatage dans le footer de l'image
-async function addTimestampToImage(imageBuffer, customOptions = null) {
+async function addTimestampToImage(imageBuffer, customOptions = null, imageFormat = null) {
   const options = customOptions || getTimestampOptions();
+  const format = imageFormat || getImageFormat();
 
   console.log('Timestamp options:', options);
   console.log('Timestamp enabled:', options.enabled);
+  console.log('Image format:', format);
 
-  // Si l'horodatage est désactivé, retourner l'image originale convertie en JPEG
+  // Si l'horodatage est désactivé, retourner l'image originale convertie
   if (options.enabled === false) {
     console.log('Timestamp disabled, returning original image');
-    return await sharp(imageBuffer).jpeg({ quality: 99 }).toBuffer();
+    return await convertToFormat(sharp(imageBuffer), format);
   }
 
   const now = new Date();
@@ -136,14 +157,12 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
 
     const overlayImage = await sharp(overlay).png().toBuffer();
 
-    const finalImage = await sharp(imageBuffer)
+    const composited = sharp(imageBuffer)
       .composite([
         { input: overlayImage, top: overlayY, left: 0 }
-      ])
-      .jpeg({ quality: 99 })
-      .toBuffer();
+      ]);
 
-    return finalImage;
+    return await convertToFormat(composited, format);
   } else {
     // Mode banner : le bandeau est ajouté en haut ou en bas de l'image
     const banner = Buffer.from(
@@ -158,22 +177,20 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
     const imageTop = options.position === 'top' ? bannerHeight : 0;
     const bannerTop = options.position === 'top' ? 0 : metadata.height;
 
-    const finalImage = await sharp({
+    const composited = sharp({
       create: {
         width: metadata.width,
         height: metadata.height + bannerHeight,
-        channels: 3,
-        background: { r: 255, g: 255, b: 255 }
+        channels: format === 'png' ? 4 : 3,
+        background: { r: 255, g: 255, b: 255, alpha: 1 }
       }
     })
     .composite([
       { input: imageBuffer, top: imageTop, left: 0 },
       { input: bannerImage, top: bannerTop, left: 0 }
-    ])
-    .jpeg({ quality: 99 })
-    .toBuffer();
+    ]);
 
-    return finalImage;
+    return await convertToFormat(composited, format);
   }
 }
 
@@ -311,6 +328,8 @@ function openFilenameDialog() {
       filenameDialog.webContents.send('preview-image', base64Image);
       // Envoyer les options d'horodatage par défaut
       filenameDialog.webContents.send('timestamp-options', getTimestampOptions());
+      // Envoyer le format d'image par défaut
+      filenameDialog.webContents.send('image-format', getImageFormat());
 
       // Ajuster la taille après chargement
       setTimeout(() => {
@@ -329,7 +348,7 @@ function openFilenameDialog() {
 }
 
 // Sauvegarder la capture avec le nom choisi et les options d'horodatage
-async function saveScreenshotWithName(filename, timestampOptions) {
+async function saveScreenshotWithName(filename, timestampOptions, imageFormat = null) {
   if (!pendingScreenshot) {
     console.error('No pending screenshot to save');
     return;
@@ -337,7 +356,9 @@ async function saveScreenshotWithName(filename, timestampOptions) {
 
   try {
     const savePath = getSavePath();
-    const fullFilename = `${filename}.jpg`;
+    const format = imageFormat || getImageFormat();
+    const extension = format === 'png' ? 'png' : 'jpg';
+    const fullFilename = `${filename}.${extension}`;
     const fullPath = path.join(savePath, fullFilename);
 
     // Vérifier que le dossier existe
@@ -345,8 +366,8 @@ async function saveScreenshotWithName(filename, timestampOptions) {
       fs.mkdirSync(savePath, { recursive: true });
     }
 
-    // Appliquer l'horodatage avec les options fournies
-    const finalImage = await addTimestampToImage(pendingScreenshot.originalImage, timestampOptions);
+    // Appliquer l'horodatage avec les options fournies et le format choisi
+    const finalImage = await addTimestampToImage(pendingScreenshot.originalImage, timestampOptions, format);
 
     await sharp(finalImage).toFile(fullPath);
 
@@ -581,6 +602,16 @@ function setupIpcHandlers() {
     return defaults;
   });
 
+  // Gestionnaires pour le format d'image
+  ipcMain.handle('get-image-format', () => {
+    return getImageFormat();
+  });
+
+  ipcMain.handle('set-image-format', (event, format) => {
+    store.set('imageFormat', format);
+    return format;
+  });
+
   ipcMain.on('selection-complete', async (event, bounds) => {
     // Capturer d'abord, AVANT de fermer la fenêtre (qui efface le buffer)
     if (bounds && bounds.width > 0 && bounds.height > 0) {
@@ -619,9 +650,12 @@ function setupIpcHandlers() {
     if (filenameDialog) {
       filenameDialog.close();
     }
-    // Sauvegarder les options d'horodatage comme nouvelles valeurs par défaut
+    // Sauvegarder les options d'horodatage et le format comme nouvelles valeurs par défaut
     store.set('timestampOptions', data.timestampOptions);
-    await saveScreenshotWithName(data.filename, data.timestampOptions);
+    if (data.imageFormat) {
+      store.set('imageFormat', data.imageFormat);
+    }
+    await saveScreenshotWithName(data.filename, data.timestampOptions, data.imageFormat);
   });
 
   ipcMain.on('resize-dialog', () => {

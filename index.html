@@ -264,6 +264,15 @@
           </label>
         </div>
         <div class="path-section" style="margin-top: 15px;">
+          <div class="option-row">
+            <label><strong>Format d'image :</strong></label>
+            <select id="imageFormat" onchange="updateImageFormat()">
+              <option value="jpg">JPEG (plus léger)</option>
+              <option value="png">PNG (meilleure qualité)</option>
+            </select>
+          </div>
+        </div>
+        <div class="path-section" style="margin-top: 15px;">
           <label>
             <input type="checkbox" id="disableWindowsPrtScr" onchange="toggleWindowsPrtScr()">
             <strong>Désactiver la capture d'écran Windows (recommandé)</strong>
@@ -516,11 +525,29 @@
       showNotification('Options d\'horodatage réinitialisées');
     }
 
+    // Charger le format d'image
+    async function loadImageFormat() {
+      try {
+        const format = await ipcRenderer.invoke('get-image-format');
+        document.getElementById('imageFormat').value = format;
+      } catch (error) {
+        document.getElementById('imageFormat').value = 'jpg';
+      }
+    }
+
+    // Mettre à jour le format d'image
+    async function updateImageFormat() {
+      const format = document.getElementById('imageFormat').value;
+      await ipcRenderer.invoke('set-image-format', format);
+      showNotification(format === 'png' ? 'Format PNG sélectionné' : 'Format JPEG sélectionné');
+    }
+
     // Charger au démarrage
     loadCurrentPath();
     loadAutoStart();
     loadWindowsPrtScr();
     loadTimestampOptions();
+    loadImageFormat();
   </script>
 </body>
 </html>

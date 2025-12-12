@@ -61,6 +61,21 @@
       font-weight: 500;
     }
 
+    .format-select {
+      padding: 10px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    .format-select:focus {
+      border-color: #667eea;
+    }
+
     .buttons {
       display: flex;
       gap: 10px;
@@ -282,7 +297,10 @@
     <h2>Nom de la capture</h2>
     <div class="input-group">
       <input type="text" id="filename" autofocus>
-      <span class="extension">.jpg</span>
+      <select id="imageFormat" class="format-select" onchange="updateFormat()">
+        <option value="jpg">.jpg</option>
+        <option value="png">.png</option>
+      </select>
     </div>
     <p class="hint">Laissez vide pour utiliser le nom par defaut</p>
 
@@ -581,11 +599,26 @@
       updatePreview();
     });
 
+    ipcRenderer.on('image-format', (event, format) => {
+      document.getElementById('imageFormat').value = format;
+    });
+
+    // Mettre à jour le format (appelé quand on change le select)
+    function updateFormat() {
+      // Le format sera envoyé lors de la sauvegarde
+    }
+
+    // Obtenir le format actuel
+    function getCurrentFormat() {
+      return document.getElementById('imageFormat').value;
+    }
+
     function save() {
       const filename = input.value.trim() || input.placeholder;
       const options = getCurrentOptions();
-      console.log('Saving with options:', options);
-      ipcRenderer.send('filename-submit', { filename, timestampOptions: options });
+      const imageFormat = getCurrentFormat();
+      console.log('Saving with options:', options, 'format:', imageFormat);
+      ipcRenderer.send('filename-submit', { filename, timestampOptions: options, imageFormat });
     }
 
     function cancel() {

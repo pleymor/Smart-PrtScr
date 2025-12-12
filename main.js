@@ -88,10 +88,10 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
   console.log('Timestamp options:', options);
   console.log('Timestamp enabled:', options.enabled);
 
-  // Si l'horodatage est désactivé, retourner l'image originale convertie en PNG
+  // Si l'horodatage est désactivé, retourner l'image originale convertie en JPEG
   if (options.enabled === false) {
     console.log('Timestamp disabled, returning original image');
-    return await sharp(imageBuffer).png().toBuffer();
+    return await sharp(imageBuffer).jpeg({ quality: 90 }).toBuffer();
   }
 
   const now = new Date();
@@ -140,7 +140,7 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
       .composite([
         { input: overlayImage, top: overlayY, left: 0 }
       ])
-      .png()
+      .jpeg({ quality: 90 })
       .toBuffer();
 
     return finalImage;
@@ -162,15 +162,15 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
       create: {
         width: metadata.width,
         height: metadata.height + bannerHeight,
-        channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 1 }
+        channels: 3,
+        background: { r: 255, g: 255, b: 255 }
       }
     })
     .composite([
       { input: imageBuffer, top: imageTop, left: 0 },
       { input: bannerImage, top: bannerTop, left: 0 }
     ])
-    .png()
+    .jpeg({ quality: 90 })
     .toBuffer();
 
     return finalImage;
@@ -335,7 +335,7 @@ async function saveScreenshotWithName(filename, timestampOptions) {
 
   try {
     const savePath = getSavePath();
-    const fullFilename = `${filename}.png`;
+    const fullFilename = `${filename}.jpg`;
     const fullPath = path.join(savePath, fullFilename);
 
     // Vérifier que le dossier existe

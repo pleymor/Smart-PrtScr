@@ -68,7 +68,7 @@
   <img id="screenshot" />
   <canvas id="canvas"></canvas>
   <div class="instruction" id="instruction">Dessinez un rectangle ou cliquez pour tout capturer</div>
-  <div class="help">Cliquez et glissez pour sélectionner une zone | Clic simple = écran entier | Échap pour annuler</div>
+  <div class="help">Glissez pour sélectionner | PrtScr = écran entier | Échap = annuler</div>
 
   <script>
     const { ipcRenderer } = require('electron');
@@ -165,6 +165,11 @@
       if (e.key === 'Escape') {
         ipcRenderer.send('selection-cancel');
       }
+    });
+
+    // Écouter le signal pour capturer tout l'écran
+    ipcRenderer.on('capture-full-screen', () => {
+      ipcRenderer.send('selection-complete', { x: 0, y: 0, width: canvas.width, height: canvas.height });
     });
   </script>
 </body>

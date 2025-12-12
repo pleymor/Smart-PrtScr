@@ -234,9 +234,11 @@ async function createSelectionWindow() {
     selectionWindow.loadFile('selection.html');
     selectionWindow.setIgnoreMouseEvents(false);
 
-    // Envoyer la capture à la fenêtre
+    // Envoyer la capture à la fenêtre et donner le focus
     selectionWindow.webContents.on('did-finish-load', () => {
       selectionWindow.webContents.send('screenshot-data', base64Image);
+      selectionWindow.focus();
+      selectionWindow.webContents.focus();
     });
 
     selectionWindow.on('closed', () => {
@@ -647,9 +649,22 @@ function setupKeyListener() {
     gkl = new GlobalKeyboardListener();
 
     gkl.addListener((e) => {
-      if (e.name === 'PRINT SCREEN' && e.state === 'DOWN') {
-        console.log('PrtScr pressed - Opening selection window');
-        createSelectionWindow();
+      if (e.state === 'DOWN') {
+        if (e.name === 'PRINT SCREEN') {
+          if (selectionWindow && !selectionWindow.isDestroyed()) {
+            // Si la fenêtre de sélection est ouverte, capturer tout l'écran
+            console.log('PrtScr pressed - Capturing full screen');
+            selectionWindow.webContents.send('capture-full-screen');
+          } else {
+            console.log('PrtScr pressed - Opening selection window');
+            createSelectionWindow();
+          }
+        } else if (e.name === 'ESCAPE') {
+          if (selectionWindow && !selectionWindow.isDestroyed()) {
+            console.log('Escape pressed - Canceling selection');
+            selectionWindow.close();
+          }
+        }
       }
     });
 

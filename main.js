@@ -219,6 +219,7 @@ async function createSelectionWindow() {
       transparent: true,
       alwaysOnTop: true,
       skipTaskbar: true,
+      resizable: false,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false

@@ -179,12 +179,16 @@
       color: #666;
     }
 
-    .option-row select {
+    .option-row select, .option-row input[type="number"] {
       padding: 6px 10px;
       border-radius: 6px;
       border: 1px solid #ddd;
       background: white;
       font-size: 12px;
+    }
+
+    .option-row input[type="number"] {
+      width: 70px;
     }
 
     .option-row.full-width {
@@ -200,6 +204,31 @@
       pointer-events: none;
       max-height: 0;
       overflow: hidden;
+    }
+
+    .style-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .style-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+      font-size: 12px;
+    }
+
+    .style-checkbox:hover {
+      background: #f0f0f0;
+    }
+
+    .style-checkbox input {
+      margin: 0;
     }
   </style>
 </head>
@@ -244,15 +273,8 @@
           </div>
 
           <div class="option-row">
-            <label>Taille du texte</label>
-            <select id="timestampFontSize">
-              <option value="10">Petit (10px)</option>
-              <option value="12">Normal (12px)</option>
-              <option value="14">Moyen (14px)</option>
-              <option value="16">Grand (16px)</option>
-              <option value="18">Très grand (18px)</option>
-              <option value="20">Extra grand (20px)</option>
-            </select>
+            <label>Taille du texte (px)</label>
+            <input type="number" id="timestampFontSize" min="8" max="72" value="14">
           </div>
 
           <div class="option-row">
@@ -269,10 +291,12 @@
               <option value="white">Blanc</option>
               <option value="black">Noir</option>
               <option value="gray">Gris</option>
-              <option value="blue">Bleu</option>
               <option value="red">Rouge</option>
               <option value="green">Vert</option>
+              <option value="blue">Bleu</option>
               <option value="yellow">Jaune</option>
+              <option value="cyan">Cyan</option>
+              <option value="magenta">Magenta</option>
             </select>
           </div>
 
@@ -283,6 +307,15 @@
               <option value="center">Centré</option>
               <option value="right">Droite</option>
             </select>
+          </div>
+
+          <div class="option-row">
+            <label>Style du texte</label>
+            <div class="style-buttons">
+              <label class="style-checkbox"><input type="checkbox" id="timestampBold"> <b>G</b></label>
+              <label class="style-checkbox"><input type="checkbox" id="timestampItalic"> <i>I</i></label>
+              <label class="style-checkbox"><input type="checkbox" id="timestampUnderline"> <u>S</u></label>
+            </div>
           </div>
         </div>
       </div>
@@ -325,10 +358,13 @@
       document.getElementById('timestampEnabled').checked = options.enabled;
       document.getElementById('timestampType').value = options.type;
       document.getElementById('timestampPosition').value = options.position;
-      document.getElementById('timestampFontSize').value = String(options.fontSize);
+      document.getElementById('timestampFontSize').value = options.fontSize;
       document.getElementById('timestampBannerColor').value = options.bannerColor;
       document.getElementById('timestampTextColor').value = options.textColor;
       document.getElementById('timestampTextAlign').value = options.textAlign;
+      document.getElementById('timestampBold').checked = options.bold || false;
+      document.getElementById('timestampItalic').checked = options.italic || false;
+      document.getElementById('timestampUnderline').checked = options.underline || false;
       updateOptionsState();
     }
 
@@ -341,7 +377,10 @@
         fontSize: parseInt(document.getElementById('timestampFontSize').value, 10),
         bannerColor: document.getElementById('timestampBannerColor').value,
         textColor: document.getElementById('timestampTextColor').value,
-        textAlign: document.getElementById('timestampTextAlign').value
+        textAlign: document.getElementById('timestampTextAlign').value,
+        bold: document.getElementById('timestampBold').checked,
+        italic: document.getElementById('timestampItalic').checked,
+        underline: document.getElementById('timestampUnderline').checked
       };
     }
 

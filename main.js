@@ -50,7 +50,10 @@ function getDefaultTimestampOptions() {
     bannerColor: 'dark', // 'dark' ou 'light'
     textColor: 'white', // 'gray', 'white', 'black', 'blue', 'red', 'green', 'yellow'
     textAlign: 'center', // 'left', 'center', 'right'
-    position: 'bottom' // 'top' ou 'bottom'
+    position: 'bottom', // 'top' ou 'bottom'
+    bold: false,
+    italic: false,
+    underline: false
   };
 }
 
@@ -60,15 +63,17 @@ function getTimestampOptions() {
   return store.get('timestampOptions', defaults);
 }
 
-// Couleurs de texte disponibles
+// Couleurs de texte disponibles (couleurs primaires vives)
 const textColors = {
-  gray: '#888888',
   white: '#ffffff',
   black: '#000000',
-  blue: '#2196f3',
-  red: '#f44336',
-  green: '#4caf50',
-  yellow: '#ffeb3b'
+  gray: '#808080',
+  red: '#ff0000',
+  green: '#00ff00',
+  blue: '#0000ff',
+  yellow: '#ffff00',
+  cyan: '#00ffff',
+  magenta: '#ff00ff'
 };
 
 // Couleurs de bandeau
@@ -111,6 +116,11 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
   const bannerColor = bannerColors[options.bannerColor] || bannerColors.dark;
   const textY = Math.round(bannerHeight / 2 + options.fontSize / 3);
 
+  // Construire les attributs de style
+  const fontWeight = options.bold ? 'bold' : 'normal';
+  const fontStyle = options.italic ? 'italic' : 'normal';
+  const textDecoration = options.underline ? 'underline' : 'none';
+
   if (options.type === 'overlay') {
     // Mode overlay : le texte est directement sur l'image (sans bandeau de fond)
     const overlayY = options.position === 'top' ? 0 : metadata.height - bannerHeight;
@@ -118,7 +128,7 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
     // Créer juste le texte sans fond
     const overlay = Buffer.from(
       `<svg width="${metadata.width}" height="${bannerHeight}">
-        <text x="${textX}" y="${textY}" font-family="Arial" font-size="${options.fontSize}" fill="${textColor}" text-anchor="${textAnchor}">${timestamp}</text>
+        <text x="${textX}" y="${textY}" font-family="Arial" font-size="${options.fontSize}" font-weight="${fontWeight}" font-style="${fontStyle}" text-decoration="${textDecoration}" fill="${textColor}" text-anchor="${textAnchor}">${timestamp}</text>
       </svg>`
     );
 
@@ -137,7 +147,7 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
     const banner = Buffer.from(
       `<svg width="${metadata.width}" height="${bannerHeight}">
         <rect width="${metadata.width}" height="${bannerHeight}" fill="${bannerColor}"/>
-        <text x="${textX}" y="${textY}" font-family="Arial" font-size="${options.fontSize}" fill="${textColor}" text-anchor="${textAnchor}">${timestamp}</text>
+        <text x="${textX}" y="${textY}" font-family="Arial" font-size="${options.fontSize}" font-weight="${fontWeight}" font-style="${fontStyle}" text-decoration="${textDecoration}" fill="${textColor}" text-anchor="${textAnchor}">${timestamp}</text>
       </svg>`
     );
 

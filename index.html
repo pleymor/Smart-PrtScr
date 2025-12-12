@@ -194,7 +194,7 @@
       min-width: 140px;
     }
 
-    .option-row select {
+    .option-row select, .option-row input[type="number"] {
       padding: 5px 10px;
       border-radius: 3px;
       border: 1px solid #ddd;
@@ -204,11 +204,39 @@
       max-width: 200px;
     }
 
+    .option-row input[type="number"] {
+      max-width: 80px;
+    }
+
     #timestampOptionsContainer.disabled {
       opacity: 0;
       pointer-events: none;
       max-height: 0;
       overflow: hidden;
+    }
+
+    .style-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .style-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      background: white;
+    }
+
+    .style-checkbox:hover {
+      background: #f0f0f0;
+    }
+
+    .style-checkbox input {
+      margin: 0;
     }
   </style>
 </head>
@@ -281,14 +309,7 @@
 
           <div class="option-row">
             <label><strong>Taille du texte :</strong></label>
-            <select id="timestampFontSize" onchange="updateTimestampOptions()">
-              <option value="10">Petit (10px)</option>
-              <option value="12">Normal (12px)</option>
-              <option value="14">Moyen (14px)</option>
-              <option value="16">Grand (16px)</option>
-              <option value="18">Très grand (18px)</option>
-              <option value="20">Extra grand (20px)</option>
-            </select>
+            <input type="number" id="timestampFontSize" min="8" max="72" value="14" onchange="updateTimestampOptions()"> px
           </div>
 
           <div class="option-row">
@@ -305,10 +326,12 @@
               <option value="white">Blanc</option>
               <option value="black">Noir</option>
               <option value="gray">Gris</option>
-              <option value="blue">Bleu</option>
               <option value="red">Rouge</option>
               <option value="green">Vert</option>
+              <option value="blue">Bleu</option>
               <option value="yellow">Jaune</option>
+              <option value="cyan">Cyan</option>
+              <option value="magenta">Magenta</option>
             </select>
           </div>
 
@@ -319,6 +342,15 @@
               <option value="center">Centré</option>
               <option value="right">Droite</option>
             </select>
+          </div>
+
+          <div class="option-row">
+            <label><strong>Style du texte :</strong></label>
+            <div class="style-buttons">
+              <label class="style-checkbox"><input type="checkbox" id="timestampBold" onchange="updateTimestampOptions()"> <b>G</b></label>
+              <label class="style-checkbox"><input type="checkbox" id="timestampItalic" onchange="updateTimestampOptions()"> <i>I</i></label>
+              <label class="style-checkbox"><input type="checkbox" id="timestampUnderline" onchange="updateTimestampOptions()"> <u>S</u></label>
+            </div>
           </div>
 
           <div style="margin-top: 10px;">
@@ -433,10 +465,13 @@
         document.getElementById('timestampEnabled').checked = options.enabled;
         document.getElementById('timestampType').value = options.type;
         document.getElementById('timestampPosition').value = options.position;
-        document.getElementById('timestampFontSize').value = String(options.fontSize);
+        document.getElementById('timestampFontSize').value = options.fontSize;
         document.getElementById('timestampBannerColor').value = options.bannerColor;
         document.getElementById('timestampTextColor').value = options.textColor;
         document.getElementById('timestampTextAlign').value = options.textAlign;
+        document.getElementById('timestampBold').checked = options.bold || false;
+        document.getElementById('timestampItalic').checked = options.italic || false;
+        document.getElementById('timestampUnderline').checked = options.underline || false;
         updateOptionsContainerState(options.enabled);
       } catch (error) {
         console.error('Error loading timestamp options:', error);
@@ -462,7 +497,10 @@
         fontSize: parseInt(document.getElementById('timestampFontSize').value, 10),
         bannerColor: document.getElementById('timestampBannerColor').value,
         textColor: document.getElementById('timestampTextColor').value,
-        textAlign: document.getElementById('timestampTextAlign').value
+        textAlign: document.getElementById('timestampTextAlign').value,
+        bold: document.getElementById('timestampBold').checked,
+        italic: document.getElementById('timestampItalic').checked,
+        underline: document.getElementById('timestampUnderline').checked
       };
 
       updateOptionsContainerState(options.enabled);
@@ -477,10 +515,13 @@
       document.getElementById('timestampEnabled').checked = options.enabled;
       document.getElementById('timestampType').value = options.type;
       document.getElementById('timestampPosition').value = options.position;
-      document.getElementById('timestampFontSize').value = String(options.fontSize);
+      document.getElementById('timestampFontSize').value = options.fontSize;
       document.getElementById('timestampBannerColor').value = options.bannerColor;
       document.getElementById('timestampTextColor').value = options.textColor;
       document.getElementById('timestampTextAlign').value = options.textAlign;
+      document.getElementById('timestampBold').checked = options.bold || false;
+      document.getElementById('timestampItalic').checked = options.italic || false;
+      document.getElementById('timestampUnderline').checked = options.underline || false;
       updateOptionsContainerState(options.enabled);
       showNotification('Options d\'horodatage réinitialisées');
     }

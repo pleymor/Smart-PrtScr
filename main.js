@@ -46,9 +46,8 @@ function getDefaultTimestampOptions() {
   return {
     enabled: true,
     fontSize: 14,
-    type: 'banner', // 'banner' ou 'overlay'
-    bannerColor: 'dark', // 'dark' ou 'light'
-    textColor: 'white', // 'gray', 'white', 'black', 'blue', 'red', 'green', 'yellow'
+    type: 'banner-dark', // 'banner-dark', 'banner-light', 'overlay'
+    textColor: 'white', // 'gray', 'white', 'black', 'blue', 'red', 'green', 'yellow', 'cyan', 'magenta'
     textAlign: 'center', // 'left', 'center', 'right'
     position: 'bottom', // 'top' ou 'bottom'
     bold: false,
@@ -76,11 +75,6 @@ const textColors = {
   magenta: '#ff00ff'
 };
 
-// Couleurs de bandeau
-const bannerColors = {
-  dark: '#333333',
-  light: '#f5f5f5'
-};
 
 // Ajouter l'horodatage dans le footer de l'image
 async function addTimestampToImage(imageBuffer, customOptions = null) {
@@ -113,7 +107,6 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
   }
 
   const textColor = textColors[options.textColor] || textColors.white;
-  const bannerColor = bannerColors[options.bannerColor] || bannerColors.dark;
   const textY = Math.round(bannerHeight / 2 + options.fontSize / 3);
 
   // Construire les attributs de style
@@ -121,7 +114,11 @@ async function addTimestampToImage(imageBuffer, customOptions = null) {
   const fontStyle = options.italic ? 'italic' : 'normal';
   const textDecoration = options.underline ? 'underline' : 'none';
 
-  if (options.type === 'overlay') {
+  // Déterminer le type et la couleur du bandeau
+  const isOverlay = options.type === 'overlay';
+  const bannerColor = options.type === 'banner-light' ? '#f5f5f5' : '#333333';
+
+  if (isOverlay) {
     // Mode overlay : le texte est directement sur l'image (sans bandeau de fond)
     const overlayY = options.position === 'top' ? 0 : metadata.height - bannerHeight;
 

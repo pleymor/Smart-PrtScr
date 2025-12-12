@@ -294,7 +294,8 @@
           <div class="option-row">
             <label><strong>Type d'affichage :</strong></label>
             <select id="timestampType" onchange="updateTimestampOptions()">
-              <option value="banner">Bandeau</option>
+              <option value="banner-dark">Bandeau sombre</option>
+              <option value="banner-light">Bandeau clair</option>
               <option value="overlay">Par-dessus l'image</option>
             </select>
           </div>
@@ -310,14 +311,6 @@
           <div class="option-row">
             <label><strong>Taille du texte :</strong></label>
             <input type="number" id="timestampFontSize" min="8" max="72" value="14" onchange="updateTimestampOptions()"> px
-          </div>
-
-          <div class="option-row">
-            <label><strong>Couleur du bandeau :</strong></label>
-            <select id="timestampBannerColor" onchange="updateTimestampOptions()">
-              <option value="dark">Sombre</option>
-              <option value="light">Clair</option>
-            </select>
           </div>
 
           <div class="option-row">
@@ -466,7 +459,6 @@
         document.getElementById('timestampType').value = options.type;
         document.getElementById('timestampPosition').value = options.position;
         document.getElementById('timestampFontSize').value = options.fontSize;
-        document.getElementById('timestampBannerColor').value = options.bannerColor;
         document.getElementById('timestampTextColor').value = options.textColor;
         document.getElementById('timestampTextAlign').value = options.textAlign;
         document.getElementById('timestampBold').checked = options.bold || false;
@@ -495,7 +487,6 @@
         type: document.getElementById('timestampType').value,
         position: document.getElementById('timestampPosition').value,
         fontSize: parseInt(document.getElementById('timestampFontSize').value, 10),
-        bannerColor: document.getElementById('timestampBannerColor').value,
         textColor: document.getElementById('timestampTextColor').value,
         textAlign: document.getElementById('timestampTextAlign').value,
         bold: document.getElementById('timestampBold').checked,
@@ -516,7 +507,6 @@
       document.getElementById('timestampType').value = options.type;
       document.getElementById('timestampPosition').value = options.position;
       document.getElementById('timestampFontSize').value = options.fontSize;
-      document.getElementById('timestampBannerColor').value = options.bannerColor;
       document.getElementById('timestampTextColor').value = options.textColor;
       document.getElementById('timestampTextAlign').value = options.textAlign;
       document.getElementById('timestampBold').checked = options.bold || false;

@@ -41,39 +41,128 @@ function generateDefaultFilename() {
   return `Screenshot_${timestamp}`;
 }
 
+// Obtenir les options d'horodatage par défaut
+function getDefaultTimestampOptions() {
+  return {
+    enabled: true,
+    fontSize: 14,
+    type: 'banner', // 'banner' ou 'overlay'
+    bannerColor: 'dark', // 'dark' ou 'light'
+    textColor: 'white', // 'gray', 'white', 'black', 'blue', 'red', 'green', 'yellow'
+    textAlign: 'center', // 'left', 'center', 'right'
+    position: 'bottom' // 'top' ou 'bottom'
+  };
+}
+
+// Obtenir les options d'horodatage configurées
+function getTimestampOptions() {
+  const defaults = getDefaultTimestampOptions();
+  return store.get('timestampOptions', defaults);
+}
+
+// Couleurs de texte disponibles
+const textColors = {
+  gray: '#888888',
+  white: '#ffffff',
+  black: '#000000',
+  blue: '#2196f3',
+  red: '#f44336',
+  green: '#4caf50',
+  yellow: '#ffeb3b'
+};
+
+// Couleurs de bandeau
+const bannerColors = {
+  dark: '#333333',
+  light: '#f5f5f5'
+};
+
 // Ajouter l'horodatage dans le footer de l'image
-async function addTimestampToImage(imageBuffer) {
+async function addTimestampToImage(imageBuffer, customOptions = null) {
+  const options = customOptions || getTimestampOptions();
+
+  console.log('Timestamp options:', options);
+  console.log('Timestamp enabled:', options.enabled);
+
+  // Si l'horodatage est désactivé, retourner l'image originale convertie en PNG
+  if (options.enabled === false) {
+    console.log('Timestamp disabled, returning original image');
+    return await sharp(imageBuffer).png().toBuffer();
+  }
+
   const now = new Date();
   const timestamp = now.toLocaleString('fr-FR');
 
   const metadata = await sharp(imageBuffer).metadata();
-  const footerHeight = 30;
+  const bannerHeight = Math.max(24, options.fontSize + 10);
 
-  const footer = Buffer.from(
-    `<svg width="${metadata.width}" height="${footerHeight}">
-      <rect width="${metadata.width}" height="${footerHeight}" fill="#333333"/>
-      <text x="50%" y="20" font-family="Arial" font-size="14" fill="white" text-anchor="middle">${timestamp}</text>
-    </svg>`
-  );
+  // Calculer l'alignement du texte
+  let textAnchor = 'middle';
+  let textX = '50%';
+  if (options.textAlign === 'left') {
+    textAnchor = 'start';
+    textX = '10';
+  } else if (options.textAlign === 'right') {
+    textAnchor = 'end';
+    textX = String(metadata.width - 10);
+  }
 
-  const footerImage = await sharp(footer).png().toBuffer();
+  const textColor = textColors[options.textColor] || textColors.white;
+  const bannerColor = bannerColors[options.bannerColor] || bannerColors.dark;
+  const textY = Math.round(bannerHeight / 2 + options.fontSize / 3);
 
-  const finalImage = await sharp({
-    create: {
-      width: metadata.width,
-      height: metadata.height + footerHeight,
-      channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: 1 }
-    }
-  })
-  .composite([
-    { input: imageBuffer, top: 0, left: 0 },
-    { input: footerImage, top: metadata.height, left: 0 }
-  ])
-  .png()
-  .toBuffer();
+  if (options.type === 'overlay') {
+    // Mode overlay : le texte est directement sur l'image (sans bandeau de fond)
+    const overlayY = options.position === 'top' ? 0 : metadata.height - bannerHeight;
 
-  return finalImage;
+    // Créer juste le texte sans fond
+    const overlay = Buffer.from(
+      `<svg width="${metadata.width}" height="${bannerHeight}">
+        <text x="${textX}" y="${textY}" font-family="Arial" font-size="${options.fontSize}" fill="${textColor}" text-anchor="${textAnchor}">${timestamp}</text>
+      </svg>`
+    );
+
+    const overlayImage = await sharp(overlay).png().toBuffer();
+
+    const finalImage = await sharp(imageBuffer)
+      .composite([
+        { input: overlayImage, top: overlayY, left: 0 }
+      ])
+      .png()
+      .toBuffer();
+
+    return finalImage;
+  } else {
+    // Mode banner : le bandeau est ajouté en haut ou en bas de l'image
+    const banner = Buffer.from(
+      `<svg width="${metadata.width}" height="${bannerHeight}">
+        <rect width="${metadata.width}" height="${bannerHeight}" fill="${bannerColor}"/>
+        <text x="${textX}" y="${textY}" font-family="Arial" font-size="${options.fontSize}" fill="${textColor}" text-anchor="${textAnchor}">${timestamp}</text>
+      </svg>`
+    );
+
+    const bannerImage = await sharp(banner).png().toBuffer();
+
+    const imageTop = options.position === 'top' ? bannerHeight : 0;
+    const bannerTop = options.position === 'top' ? 0 : metadata.height;
+
+    const finalImage = await sharp({
+      create: {
+        width: metadata.width,
+        height: metadata.height + bannerHeight,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 1 }
+      }
+    })
+    .composite([
+      { input: imageBuffer, top: imageTop, left: 0 },
+      { input: bannerImage, top: bannerTop, left: 0 }
+    ])
+    .png()
+    .toBuffer();
+
+    return finalImage;
+  }
 }
 
 // Créer la fenêtre de sélection
@@ -164,11 +253,9 @@ async function captureSelection(bounds) {
       })
       .toBuffer();
 
-    const finalImage = await addTimestampToImage(croppedImage);
-
-    // Stocker l'image en attente et ouvrir le dialogue
+    // Stocker l'image originale (sans horodatage) pour permettre la personnalisation
     pendingScreenshot = {
-      image: finalImage,
+      originalImage: croppedImage,
       defaultFilename: generateDefaultFilename()
     };
 
@@ -187,11 +274,12 @@ function openFilenameDialog() {
 
   filenameDialog = new BrowserWindow({
     width: 550,
-    height: 520,
+    height: 450,
     frame: false,
     resizable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
+    useContentSize: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -203,9 +291,20 @@ function openFilenameDialog() {
   filenameDialog.webContents.on('did-finish-load', () => {
     if (pendingScreenshot) {
       filenameDialog.webContents.send('default-filename', pendingScreenshot.defaultFilename);
-      // Envoyer l'aperçu de l'image
-      const base64Image = pendingScreenshot.image.toString('base64');
+      // Envoyer l'aperçu de l'image (image originale sans horodatage)
+      const base64Image = pendingScreenshot.originalImage.toString('base64');
       filenameDialog.webContents.send('preview-image', base64Image);
+      // Envoyer les options d'horodatage par défaut
+      filenameDialog.webContents.send('timestamp-options', getTimestampOptions());
+
+      // Ajuster la taille après chargement
+      setTimeout(() => {
+        filenameDialog.webContents.executeJavaScript(`
+          document.body.scrollHeight + 40
+        `).then(height => {
+          filenameDialog.setContentSize(550, Math.min(height, 800));
+        });
+      }, 100);
     }
   });
 
@@ -214,8 +313,8 @@ function openFilenameDialog() {
   });
 }
 
-// Sauvegarder la capture avec le nom choisi
-async function saveScreenshotWithName(filename) {
+// Sauvegarder la capture avec le nom choisi et les options d'horodatage
+async function saveScreenshotWithName(filename, timestampOptions) {
   if (!pendingScreenshot) {
     console.error('No pending screenshot to save');
     return;
@@ -231,12 +330,15 @@ async function saveScreenshotWithName(filename) {
       fs.mkdirSync(savePath, { recursive: true });
     }
 
-    await sharp(pendingScreenshot.image).toFile(fullPath);
+    // Appliquer l'horodatage avec les options fournies
+    const finalImage = await addTimestampToImage(pendingScreenshot.originalImage, timestampOptions);
+
+    await sharp(finalImage).toFile(fullPath);
 
     console.log(`Screenshot saved: ${fullPath}`);
 
-    // Ouvrir le dossier de destination
-    shell.openPath(savePath);
+    // Ouvrir le dossier et sélectionner le fichier
+    shell.showItemInFolder(fullPath);
 
     // Notification via tray
     if (tray) {
@@ -266,9 +368,10 @@ function createMainWindow() {
 
   mainWindow = new BrowserWindow({
     width: 600,
-    height: 560,
+    height: 600,
     frame: false,
     resizable: false,
+    useContentSize: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -277,6 +380,15 @@ function createMainWindow() {
   });
 
   mainWindow.loadFile('index.html');
+
+  // Ajuster la hauteur automatiquement après le chargement
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.executeJavaScript(`
+      document.body.scrollHeight + 40
+    `).then(height => {
+      mainWindow.setContentSize(600, Math.min(height, 900));
+    });
+  });
   mainWindow.setMenuBarVisibility(false);
 
   // Cacher au lieu de fermer
@@ -424,6 +536,22 @@ function setupIpcHandlers() {
     }
   });
 
+  // Gestionnaires pour les options d'horodatage
+  ipcMain.handle('get-timestamp-options', () => {
+    return getTimestampOptions();
+  });
+
+  ipcMain.handle('set-timestamp-options', (event, options) => {
+    store.set('timestampOptions', options);
+    return options;
+  });
+
+  ipcMain.handle('reset-timestamp-options', () => {
+    const defaults = getDefaultTimestampOptions();
+    store.set('timestampOptions', defaults);
+    return defaults;
+  });
+
   ipcMain.on('selection-complete', async (event, bounds) => {
     // Capturer d'abord, AVANT de fermer la fenêtre (qui efface le buffer)
     if (bounds && bounds.width > 0 && bounds.height > 0) {
@@ -447,12 +575,34 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.on('resize-window', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.executeJavaScript(`
+        document.body.scrollHeight + 40
+      `).then(height => {
+        mainWindow.setContentSize(600, Math.min(height, 900));
+      });
+    }
+  });
+
   // Gestionnaires pour le dialogue de nom de fichier
-  ipcMain.on('filename-submit', async (event, filename) => {
+  ipcMain.on('filename-submit', async (event, data) => {
     if (filenameDialog) {
       filenameDialog.close();
     }
-    await saveScreenshotWithName(filename);
+    // Sauvegarder les options d'horodatage comme nouvelles valeurs par défaut
+    store.set('timestampOptions', data.timestampOptions);
+    await saveScreenshotWithName(data.filename, data.timestampOptions);
+  });
+
+  ipcMain.on('resize-dialog', () => {
+    if (filenameDialog && !filenameDialog.isDestroyed()) {
+      filenameDialog.webContents.executeJavaScript(`
+        document.body.scrollHeight + 40
+      `).then(height => {
+        filenameDialog.setContentSize(550, Math.min(height, 800));
+      });
+    }
   });
 
   ipcMain.on('filename-cancel', () => {

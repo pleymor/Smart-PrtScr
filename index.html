@@ -4,17 +4,22 @@
   <meta charset="UTF-8">
   <title>Smart PrtScr</title>
   <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+    }
+
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       padding: 20px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      margin: 0;
-      overflow: hidden;
-      height: 100vh;
       display: flex;
-      align-items: top;
+      align-items: flex-start;
       justify-content: center;
+      box-sizing: border-box;
+      -webkit-app-region: drag;
     }
 
     .container {
@@ -26,7 +31,7 @@
       position: relative;
       max-width: 500px;
       width: 100%;
-      height: 85%;
+      -webkit-app-region: no-drag;
     }
 
     .close-btn {
@@ -61,13 +66,47 @@
     }
 
     .section {
-      margin-bottom: 20px;
+      margin-bottom: 15px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      padding: 8px 0;
+    }
+
+    .section-header:hover h2 {
+      color: #667eea;
     }
 
     .section h2 {
       font-size: 16px;
-      margin-bottom: 10px;
+      margin: 0;
       color: #555;
+      transition: color 0.2s;
+    }
+
+    .collapse-icon {
+      font-size: 12px;
+      color: #888;
+      transition: transform 0.3s;
+    }
+
+    .section.collapsed .collapse-icon {
+      transform: rotate(-90deg);
+    }
+
+    .section-content {
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+      max-height: 1000px;
+    }
+
+    .section.collapsed .section-content {
+      max-height: 0;
     }
 
     .path-section {
@@ -143,6 +182,34 @@
       font-size: 13px;
       color: #555;
     }
+
+    .option-row {
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .option-row label {
+      min-width: 140px;
+    }
+
+    .option-row select {
+      padding: 5px 10px;
+      border-radius: 3px;
+      border: 1px solid #ddd;
+      background: white;
+      font-size: 13px;
+      flex: 1;
+      max-width: 200px;
+    }
+
+    #timestampOptionsContainer.disabled {
+      opacity: 0;
+      pointer-events: none;
+      max-height: 0;
+      overflow: hidden;
+    }
   </style>
 </head>
 <body>
@@ -150,28 +217,114 @@
     <button class="close-btn" onclick="closeWindow()" title="Fermer">×</button>
     <h1>✂️ Smart PrtScr</h1>
 
-    <div class="section">
-      <h2>Configuration</h2>
-      <div class="path-section">
-        <label><strong>Dossier de destination :</strong></label>
-        <div class="path-display" id="currentPath">Chargement...</div>
-        <button onclick="changePath()">Changer le dossier</button>
-        <button onclick="resetPath()">Réinitialiser</button>
+    <div class="section" id="sectionConfig">
+      <div class="section-header" onclick="toggleSection('sectionConfig')">
+        <h2>Configuration</h2>
+        <span class="collapse-icon">▼</span>
       </div>
-      <div class="path-section" style="margin-top: 15px;">
-        <label>
-          <input type="checkbox" id="autoStart" onchange="toggleAutoStart()">
-          <strong>Lancer automatiquement au démarrage de Windows</strong>
-        </label>
+      <div class="section-content">
+        <div class="path-section">
+          <label><strong>Dossier de destination :</strong></label>
+          <div class="path-display" id="currentPath">Chargement...</div>
+          <button onclick="changePath()">Changer le dossier</button>
+          <button onclick="resetPath()">Réinitialiser</button>
+        </div>
+        <div class="path-section" style="margin-top: 15px;">
+          <label>
+            <input type="checkbox" id="autoStart" onchange="toggleAutoStart()">
+            <strong>Lancer automatiquement au démarrage de Windows</strong>
+          </label>
+        </div>
+        <div class="path-section" style="margin-top: 15px;">
+          <label>
+            <input type="checkbox" id="disableWindowsPrtScr" onchange="toggleWindowsPrtScr()">
+            <strong>Désactiver la capture d'écran Windows (recommandé)</strong>
+          </label>
+          <div class="info" style="margin-top: 10px; font-size: 12px;">
+            Désactive l'outil de capture Windows pour que Smart PrtScr gère PrintScreen exclusivement.
+            <br><em>Nécessite un redémarrage de Windows pour prendre effet.</em>
+          </div>
+        </div>
       </div>
-      <div class="path-section" style="margin-top: 15px;">
-        <label>
-          <input type="checkbox" id="disableWindowsPrtScr" onchange="toggleWindowsPrtScr()">
-          <strong>Désactiver la capture d'écran Windows (recommandé)</strong>
-        </label>
-        <div class="info" style="margin-top: 10px; font-size: 12px;">
-          Désactive l'outil de capture Windows pour que Smart PrtScr gère PrintScreen exclusivement.
-          <br><em>Nécessite un redémarrage de Windows pour prendre effet.</em>
+    </div>
+
+    <div class="section collapsed" id="sectionTimestamp">
+      <div class="section-header" onclick="toggleSection('sectionTimestamp')">
+        <h2>Horodatage</h2>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="section-content">
+        <div class="path-section">
+        <div class="option-row">
+          <label>
+            <input type="checkbox" id="timestampEnabled" onchange="updateTimestampOptions()">
+            <strong>Activer l'horodatage</strong>
+          </label>
+        </div>
+
+        <div id="timestampOptionsContainer" style="margin-top: 15px;">
+          <div class="option-row">
+            <label><strong>Type d'affichage :</strong></label>
+            <select id="timestampType" onchange="updateTimestampOptions()">
+              <option value="banner">Bandeau</option>
+              <option value="overlay">Par-dessus l'image</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label><strong>Position :</strong></label>
+            <select id="timestampPosition" onchange="updateTimestampOptions()">
+              <option value="bottom">Bas</option>
+              <option value="top">Haut</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label><strong>Taille du texte :</strong></label>
+            <select id="timestampFontSize" onchange="updateTimestampOptions()">
+              <option value="10">Petit (10px)</option>
+              <option value="12">Normal (12px)</option>
+              <option value="14">Moyen (14px)</option>
+              <option value="16">Grand (16px)</option>
+              <option value="18">Très grand (18px)</option>
+              <option value="20">Extra grand (20px)</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label><strong>Couleur du bandeau :</strong></label>
+            <select id="timestampBannerColor" onchange="updateTimestampOptions()">
+              <option value="dark">Sombre</option>
+              <option value="light">Clair</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label><strong>Couleur du texte :</strong></label>
+            <select id="timestampTextColor" onchange="updateTimestampOptions()">
+              <option value="white">Blanc</option>
+              <option value="black">Noir</option>
+              <option value="gray">Gris</option>
+              <option value="blue">Bleu</option>
+              <option value="red">Rouge</option>
+              <option value="green">Vert</option>
+              <option value="yellow">Jaune</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label><strong>Alignement du texte :</strong></label>
+            <select id="timestampTextAlign" onchange="updateTimestampOptions()">
+              <option value="left">Gauche</option>
+              <option value="center">Centré</option>
+              <option value="right">Droite</option>
+            </select>
+          </div>
+
+          <div style="margin-top: 10px;">
+            <button onclick="resetTimestampOptions()">Réinitialiser</button>
+          </div>
+        </div>
         </div>
       </div>
     </div>
@@ -181,6 +334,17 @@
 
   <script>
     const { ipcRenderer } = require('electron');
+
+    // Toggle section collapse
+    function toggleSection(sectionId) {
+      const section = document.getElementById(sectionId);
+      section.classList.toggle('collapsed');
+
+      // Ajuster la taille de la fenêtre après l'animation
+      setTimeout(() => {
+        ipcRenderer.send('resize-window');
+      }, 350);
+    }
 
     // Charger le chemin actuel au démarrage
     async function loadCurrentPath() {
@@ -262,10 +426,70 @@
       }
     }
 
+    // Charger les options d'horodatage
+    async function loadTimestampOptions() {
+      try {
+        const options = await ipcRenderer.invoke('get-timestamp-options');
+        document.getElementById('timestampEnabled').checked = options.enabled;
+        document.getElementById('timestampType').value = options.type;
+        document.getElementById('timestampPosition').value = options.position;
+        document.getElementById('timestampFontSize').value = String(options.fontSize);
+        document.getElementById('timestampBannerColor').value = options.bannerColor;
+        document.getElementById('timestampTextColor').value = options.textColor;
+        document.getElementById('timestampTextAlign').value = options.textAlign;
+        updateOptionsContainerState(options.enabled);
+      } catch (error) {
+        console.error('Error loading timestamp options:', error);
+      }
+    }
+
+    // Mettre à jour l'état du conteneur d'options
+    function updateOptionsContainerState(enabled) {
+      const container = document.getElementById('timestampOptionsContainer');
+      if (enabled) {
+        container.classList.remove('disabled');
+      } else {
+        container.classList.add('disabled');
+      }
+    }
+
+    // Mettre à jour les options d'horodatage
+    async function updateTimestampOptions() {
+      const options = {
+        enabled: document.getElementById('timestampEnabled').checked,
+        type: document.getElementById('timestampType').value,
+        position: document.getElementById('timestampPosition').value,
+        fontSize: parseInt(document.getElementById('timestampFontSize').value, 10),
+        bannerColor: document.getElementById('timestampBannerColor').value,
+        textColor: document.getElementById('timestampTextColor').value,
+        textAlign: document.getElementById('timestampTextAlign').value
+      };
+
+      updateOptionsContainerState(options.enabled);
+
+      await ipcRenderer.invoke('set-timestamp-options', options);
+      showNotification('Options d\'horodatage mises à jour');
+    }
+
+    // Réinitialiser les options d'horodatage
+    async function resetTimestampOptions() {
+      const options = await ipcRenderer.invoke('reset-timestamp-options');
+      document.getElementById('timestampEnabled').checked = options.enabled;
+      document.getElementById('timestampType').value = options.type;
+      document.getElementById('timestampPosition').value = options.position;
+      document.getElementById('timestampFontSize').value = String(options.fontSize);
+      document.getElementById('timestampBannerColor').value = options.bannerColor;
+      document.getElementById('timestampTextColor').value = options.textColor;
+      document.getElementById('timestampTextAlign').value = options.textAlign;
+      updateOptionsContainerState(options.enabled);
+      showNotification('Options d\'horodatage réinitialisées');
+    }
+
     // Charger au démarrage
     loadCurrentPath();
     loadAutoStart();
     loadWindowsPrtScr();
+    loadTimestampOptions();
   </script>
 </body>
 </html>

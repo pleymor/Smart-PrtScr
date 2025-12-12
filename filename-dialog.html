@@ -14,10 +14,10 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      height: 100vh;
-      overflow: hidden;
+      padding: 20px;
+      -webkit-app-region: drag;
     }
 
     .container {
@@ -25,7 +25,8 @@
       border-radius: 12px;
       padding: 25px;
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-      width: 400px;
+      width: 500px;
+      -webkit-app-region: no-drag;
     }
 
     h2 {
@@ -108,9 +109,97 @@
 
     .preview img {
       max-width: 100%;
-      max-height: 300px;
+      max-height: 200px;
       border-radius: 8px;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Section collapsible */
+    .section {
+      margin-top: 15px;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 10px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      padding: 8px 0;
+    }
+
+    .section-header:hover h3 {
+      color: #667eea;
+    }
+
+    .section h3 {
+      font-size: 14px;
+      margin: 0;
+      color: #555;
+      transition: color 0.2s;
+    }
+
+    .collapse-icon {
+      font-size: 10px;
+      color: #888;
+      transition: transform 0.3s;
+    }
+
+    .section.collapsed .collapse-icon {
+      transform: rotate(-90deg);
+    }
+
+    .section-content {
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+      max-height: 500px;
+    }
+
+    .section.collapsed .section-content {
+      max-height: 0;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 10px 0;
+    }
+
+    .option-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .option-row label {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .option-row select {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      background: white;
+      font-size: 12px;
+    }
+
+    .option-row.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .option-row input[type="checkbox"] {
+      margin-right: 5px;
+    }
+
+    .options-disabled {
+      opacity: 0;
+      pointer-events: none;
+      max-height: 0;
+      overflow: hidden;
     }
   </style>
 </head>
@@ -125,6 +214,80 @@
       <span class="extension">.png</span>
     </div>
     <p class="hint">Laissez vide pour utiliser le nom par defaut</p>
+
+    <div class="section collapsed" id="sectionTimestamp">
+      <div class="section-header" onclick="toggleSection('sectionTimestamp')">
+        <h3>Options d'horodatage</h3>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="section-content">
+        <div class="option-row full-width" style="padding: 10px 0 5px 0; flex-direction: row; align-items: center;">
+          <input type="checkbox" id="timestampEnabled" onchange="updateOptionsState()">
+          <label for="timestampEnabled" style="cursor: pointer;"><strong>Activer l'horodatage</strong></label>
+        </div>
+
+        <div id="timestampOptionsContainer" class="options-grid">
+          <div class="option-row">
+            <label>Type d'affichage</label>
+            <select id="timestampType">
+              <option value="banner">Bandeau</option>
+              <option value="overlay">Par-dessus l'image</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label>Position</label>
+            <select id="timestampPosition">
+              <option value="bottom">Bas</option>
+              <option value="top">Haut</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label>Taille du texte</label>
+            <select id="timestampFontSize">
+              <option value="10">Petit (10px)</option>
+              <option value="12">Normal (12px)</option>
+              <option value="14">Moyen (14px)</option>
+              <option value="16">Grand (16px)</option>
+              <option value="18">Très grand (18px)</option>
+              <option value="20">Extra grand (20px)</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label>Couleur du bandeau</label>
+            <select id="timestampBannerColor">
+              <option value="dark">Sombre</option>
+              <option value="light">Clair</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label>Couleur du texte</label>
+            <select id="timestampTextColor">
+              <option value="white">Blanc</option>
+              <option value="black">Noir</option>
+              <option value="gray">Gris</option>
+              <option value="blue">Bleu</option>
+              <option value="red">Rouge</option>
+              <option value="green">Vert</option>
+              <option value="yellow">Jaune</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label>Alignement du texte</label>
+            <select id="timestampTextAlign">
+              <option value="left">Gauche</option>
+              <option value="center">Centré</option>
+              <option value="right">Droite</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="buttons">
       <button class="btn-cancel" onclick="cancel()">Annuler</button>
       <button class="btn-save" onclick="save()">Enregistrer</button>
@@ -135,6 +298,53 @@
     const { ipcRenderer } = require('electron');
     const input = document.getElementById('filename');
 
+    // Toggle section collapse
+    function toggleSection(sectionId) {
+      const section = document.getElementById(sectionId);
+      section.classList.toggle('collapsed');
+
+      // Redimensionner la fenêtre
+      setTimeout(() => {
+        ipcRenderer.send('resize-dialog');
+      }, 350);
+    }
+
+    // Mettre à jour l'état des options
+    function updateOptionsState() {
+      const enabled = document.getElementById('timestampEnabled').checked;
+      const container = document.getElementById('timestampOptionsContainer');
+      if (enabled) {
+        container.classList.remove('options-disabled');
+      } else {
+        container.classList.add('options-disabled');
+      }
+    }
+
+    // Charger les options d'horodatage
+    function loadTimestampOptions(options) {
+      document.getElementById('timestampEnabled').checked = options.enabled;
+      document.getElementById('timestampType').value = options.type;
+      document.getElementById('timestampPosition').value = options.position;
+      document.getElementById('timestampFontSize').value = String(options.fontSize);
+      document.getElementById('timestampBannerColor').value = options.bannerColor;
+      document.getElementById('timestampTextColor').value = options.textColor;
+      document.getElementById('timestampTextAlign').value = options.textAlign;
+      updateOptionsState();
+    }
+
+    // Obtenir les options actuelles
+    function getCurrentOptions() {
+      return {
+        enabled: document.getElementById('timestampEnabled').checked,
+        type: document.getElementById('timestampType').value,
+        position: document.getElementById('timestampPosition').value,
+        fontSize: parseInt(document.getElementById('timestampFontSize').value, 10),
+        bannerColor: document.getElementById('timestampBannerColor').value,
+        textColor: document.getElementById('timestampTextColor').value,
+        textAlign: document.getElementById('timestampTextAlign').value
+      };
+    }
+
     // Recevoir le nom par défaut et l'aperçu
     ipcRenderer.on('default-filename', (event, defaultName) => {
       input.placeholder = defaultName;
@@ -144,9 +354,15 @@
       document.getElementById('preview-image').src = `data:image/png;base64,${base64Image}`;
     });
 
+    ipcRenderer.on('timestamp-options', (event, options) => {
+      loadTimestampOptions(options);
+    });
+
     function save() {
       const filename = input.value.trim() || input.placeholder;
-      ipcRenderer.send('filename-submit', filename);
+      const options = getCurrentOptions();
+      console.log('Saving with options:', options);
+      ipcRenderer.send('filename-submit', { filename, timestampOptions: options });
     }
 
     function cancel() {

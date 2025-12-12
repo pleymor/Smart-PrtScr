@@ -67,8 +67,8 @@
 <body>
   <img id="screenshot" />
   <canvas id="canvas"></canvas>
-  <div class="instruction" id="instruction">Dessinez un rectangle pour sélectionner la zone</div>
-  <div class="help">Cliquez et glissez pour sélectionner une zone | Échap pour annuler</div>
+  <div class="instruction" id="instruction">Dessinez un rectangle ou cliquez pour tout capturer</div>
+  <div class="help">Cliquez et glissez pour sélectionner une zone | Clic simple = écran entier | Échap pour annuler</div>
 
   <script>
     const { ipcRenderer } = require('electron');
@@ -152,9 +152,11 @@
 
       // Envoyer les coordonnées au processus principal
       if (width > 5 && height > 5) {
+        // Sélection rectangulaire
         ipcRenderer.send('selection-complete', { x, y, width, height });
       } else {
-        ipcRenderer.send('selection-cancel');
+        // Simple clic : capturer tout l'écran
+        ipcRenderer.send('selection-complete', { x: 0, y: 0, width: canvas.width, height: canvas.height });
       }
     });
 

@@ -373,6 +373,9 @@ async function saveScreenshotWithName(filename, timestampOptions, imageFormat = 
 
     console.log(`Screenshot saved: ${fullPath}`);
 
+    // Attendre un court instant pour s'assurer que le fichier est bien écrit
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     // Ouvrir le dossier et sélectionner le fichier
     shell.showItemInFolder(fullPath);
 

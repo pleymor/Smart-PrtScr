@@ -230,6 +230,48 @@
     .style-checkbox input {
       margin: 0;
     }
+
+    .destination-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 8px 10px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .destination-label {
+      color: #666;
+      white-space: nowrap;
+    }
+
+    .destination-path {
+      flex: 1;
+      color: #333;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .destination-path:hover {
+      color: #667eea;
+    }
+
+    .btn-folder {
+      padding: 4px 8px;
+      border: none;
+      background: #667eea;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn-folder:hover {
+      background: #5a6fd6;
+    }
   </style>
 </head>
 <body>
@@ -243,6 +285,12 @@
       <span class="extension">.png</span>
     </div>
     <p class="hint">Laissez vide pour utiliser le nom par defaut</p>
+
+    <div class="destination-row">
+      <span class="destination-label">Dossier :</span>
+      <span class="destination-path" id="destinationPath" onclick="changeDestination()" title="Cliquez pour changer">Chargement...</span>
+      <button class="btn-folder" onclick="changeDestination()" title="Changer le dossier">📁</button>
+    </div>
 
     <div class="section collapsed" id="sectionTimestamp">
       <div class="section-header" onclick="toggleSection('sectionTimestamp')">
@@ -497,9 +545,26 @@
       };
     }
 
+    // Charger le dossier de destination
+    async function loadDestination() {
+      const path = await ipcRenderer.invoke('get-save-path');
+      document.getElementById('destinationPath').textContent = path;
+      document.getElementById('destinationPath').title = path;
+    }
+
+    // Changer le dossier de destination
+    async function changeDestination() {
+      const newPath = await ipcRenderer.invoke('select-save-path');
+      if (newPath) {
+        document.getElementById('destinationPath').textContent = newPath;
+        document.getElementById('destinationPath').title = newPath;
+      }
+    }
+
     // Recevoir le nom par défaut et l'aperçu
     ipcRenderer.on('default-filename', (event, defaultName) => {
       input.placeholder = defaultName;
+      loadDestination();
     });
 
     ipcRenderer.on('preview-image', (event, base64Image) => {

@@ -482,6 +482,20 @@ function setupIpcHandlers() {
     return getSavePath();
   });
 
+  ipcMain.handle('select-save-path', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      defaultPath: getSavePath()
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      const newPath = result.filePaths[0];
+      store.set('screenshotPath', newPath);
+      return newPath;
+    }
+    return null;
+  });
+
   ipcMain.handle('set-save-path', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory']

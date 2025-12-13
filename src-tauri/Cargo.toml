@@ -1,0 +1,65 @@
+[package]
+name = "smart-prtscr"
+version = "2.0.0"
+description = "Smart PrtScr - Screenshot tool with timestamp overlay"
+authors = ["Pleymor"]
+license = "MIT"
+repository = ""
+edition = "2021"
+rust-version = "1.92"
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2", features = ["protocol-asset", "tray-icon", "image-png", "image-ico"] }
+tauri-plugin-log = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-store = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-global-shortcut = "2"
+
+# Screenshot capture
+screenshots = "0.8"
+
+# Image processing
+image = "0.25"
+imageproc = "0.25"
+ab_glyph = "0.2"
+
+# Date/time formatting
+chrono = "0.4"
+
+# Directories
+dirs = "5"
+
+# Windows registry
+winreg = "0.55"
+
+# Base64 encoding
+base64 = "0.22"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+lto = false
+codegen-units = 16
+opt-level = 2
+
+[profile.dev]
+opt-level = 0
+debug = true

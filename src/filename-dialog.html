@@ -12,27 +12,31 @@
 
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: transparent;
       display: flex;
       align-items: flex-start;
       justify-content: center;
-      padding: 20px;
       -webkit-app-region: drag;
     }
 
     .container {
-      background: white;
-      border-radius: 12px;
-      padding: 25px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-      width: 500px;
+      background: #fff;
+      padding: 15px;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      -webkit-app-region: drag;
+      overflow-y: auto;
+    }
+
+    button, input, select, label, .preview, .input-group, .destination-row, .section-header, .buttons {
       -webkit-app-region: no-drag;
     }
 
     h2 {
-      color: #667eea;
-      margin-bottom: 15px;
-      font-size: 18px;
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 16px;
     }
 
     .input-group {
@@ -43,23 +47,23 @@
 
     input[type="text"] {
       flex: 1;
-      padding: 12px 15px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-size: 14px;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
       outline: none;
       transition: border-color 0.3s;
     }
 
     input[type="text"]:focus {
-      border-color: #667eea;
+      border-color: #555;
     }
 
     .format-select {
-      padding: 10px 12px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-size: 14px;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
       background: white;
       cursor: pointer;
       outline: none;
@@ -67,23 +71,29 @@
     }
 
     .format-select:focus {
-      border-color: #667eea;
+      border-color: #555;
     }
 
     .buttons {
       display: flex;
-      gap: 10px;
-      margin-top: 20px;
+      gap: 8px;
+      margin-top: 15px;
       justify-content: flex-end;
     }
 
     button {
-      padding: 10px 20px;
+      background: #555;
+      color: white;
       border: none;
-      border-radius: 8px;
-      font-size: 14px;
+      padding: 6px 12px;
+      border-radius: 4px;
       cursor: pointer;
-      transition: all 0.3s;
+      font-size: 12px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #333;
     }
 
     .btn-cancel {
@@ -92,41 +102,40 @@
     }
 
     .btn-cancel:hover {
-      background: #d0d0d0;
+      background: #ccc;
     }
 
     .btn-save {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #555;
       color: white;
     }
 
     .btn-save:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      background: #333;
     }
 
     .hint {
       color: #888;
-      font-size: 12px;
-      margin-top: 10px;
+      font-size: 11px;
+      margin-top: 6px;
     }
 
     .preview {
-      margin-bottom: 15px;
+      margin-bottom: 10px;
       text-align: center;
     }
 
     .preview canvas {
       max-width: 100%;
-      max-height: 200px;
-      border-radius: 8px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      max-height: 180px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
     }
 
     .section {
-      margin-top: 15px;
-      border-top: 1px solid #e0e0e0;
-      padding-top: 10px;
+      margin-top: 10px;
+      border-top: 1px solid #ddd;
+      padding-top: 8px;
     }
 
     .section-header {
@@ -135,15 +144,15 @@
       justify-content: space-between;
       cursor: pointer;
       user-select: none;
-      padding: 8px 0;
+      padding: 5px 0;
     }
 
     .section-header:hover h3 {
-      color: #667eea;
+      color: #333;
     }
 
     .section h3 {
-      font-size: 14px;
+      font-size: 13px;
       margin: 0;
       color: #555;
       transition: color 0.2s;
@@ -172,8 +181,8 @@
     .options-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      padding: 10px 0;
+      gap: 8px;
+      padding: 8px 0;
     }
 
     .option-row {
@@ -183,20 +192,20 @@
     }
 
     .option-row label {
-      font-size: 12px;
+      font-size: 11px;
       color: #666;
     }
 
     .option-row select, .option-row input[type="number"] {
-      padding: 6px 10px;
-      border-radius: 6px;
+      padding: 5px 8px;
+      border-radius: 4px;
       border: 1px solid #ddd;
       background: white;
-      font-size: 12px;
+      font-size: 11px;
     }
 
     .option-row input[type="number"] {
-      width: 70px;
+      width: 60px;
     }
 
     .option-row.full-width {
@@ -212,19 +221,19 @@
 
     .style-buttons {
       display: flex;
-      gap: 8px;
+      gap: 6px;
     }
 
     .style-checkbox {
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 2px;
       cursor: pointer;
-      padding: 4px 8px;
+      padding: 3px 6px;
       border: 1px solid #ddd;
-      border-radius: 4px;
+      border-radius: 3px;
       background: white;
-      font-size: 12px;
+      font-size: 11px;
     }
 
     .style-checkbox:hover {
@@ -238,12 +247,13 @@
     .destination-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      padding: 8px 10px;
-      background: #f5f5f5;
-      border-radius: 6px;
-      font-size: 12px;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 6px 8px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 11px;
     }
 
     .destination-label {
@@ -261,21 +271,21 @@
     }
 
     .destination-path:hover {
-      color: #667eea;
+      color: #555;
     }
 
     .btn-folder {
-      padding: 4px 8px;
+      padding: 3px 6px;
       border: none;
-      background: #667eea;
+      background: #555;
       color: white;
-      border-radius: 4px;
+      border-radius: 3px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 12px;
     }
 
     .btn-folder:hover {
-      background: #5a6fd6;
+      background: #333;
     }
   </style>
 </head>
@@ -370,9 +380,9 @@
       </div>
     </div>
 
-    <div class="buttons" style="-webkit-app-region: no-drag;">
-      <button class="btn-cancel" id="btnCancel" style="-webkit-app-region: no-drag;">Annuler</button>
-      <button class="btn-save" id="btnSave" style="-webkit-app-region: no-drag;">Enregistrer</button>
+    <div class="buttons">
+      <button class="btn-cancel" id="btnCancel">Annuler</button>
+      <button class="btn-save" id="btnSave">Enregistrer</button>
     </div>
   </div>
 

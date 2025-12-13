@@ -7,7 +7,7 @@
     html, body {
       margin: 0;
       padding: 0;
-      min-height: 100%;
+      overflow: hidden;
     }
 
     body {
@@ -399,10 +399,11 @@
 
   <script type="module">
     const { invoke } = window.__TAURI__.core;
-    const { getCurrentWindow } = window.__TAURI__.window;
+    const { getCurrentWindow, LogicalSize } = window.__TAURI__.window;
 
     const BASE_HEIGHT = 340;
     const TIMESTAMP_SECTION_HEIGHT = 200;
+    const WINDOW_WIDTH = 450;
 
     // Toggle section collapse with window resize
     window.toggleSection = async function(sectionId) {
@@ -412,10 +413,13 @@
 
       // Resize window when timestamp section is toggled
       if (sectionId === 'sectionTimestamp') {
-        const win = getCurrentWindow();
-        const currentSize = await win.innerSize();
-        const newHeight = isCollapsing ? BASE_HEIGHT : BASE_HEIGHT + TIMESTAMP_SECTION_HEIGHT;
-        await win.setSize(new window.__TAURI__.window.LogicalSize(currentSize.width, newHeight));
+        try {
+          const win = getCurrentWindow();
+          const newHeight = isCollapsing ? BASE_HEIGHT : BASE_HEIGHT + TIMESTAMP_SECTION_HEIGHT;
+          await win.setSize(new LogicalSize(WINDOW_WIDTH, newHeight));
+        } catch (error) {
+          console.error('Error resizing window:', error);
+        }
       }
     }
 

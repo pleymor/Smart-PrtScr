@@ -28,10 +28,8 @@
       color: #333;
       position: relative;
       width: 100%;
-      height: 100%;
       box-sizing: border-box;
       -webkit-app-region: drag;
-      overflow-y: auto;
     }
 
     button, input, select, label, .path-section, .section-header {
@@ -401,11 +399,24 @@
 
   <script type="module">
     const { invoke } = window.__TAURI__.core;
+    const { getCurrentWindow } = window.__TAURI__.window;
 
-    // Toggle section collapse
-    window.toggleSection = function(sectionId) {
+    const BASE_HEIGHT = 340;
+    const TIMESTAMP_SECTION_HEIGHT = 200;
+
+    // Toggle section collapse with window resize
+    window.toggleSection = async function(sectionId) {
       const section = document.getElementById(sectionId);
+      const isCollapsing = !section.classList.contains('collapsed');
       section.classList.toggle('collapsed');
+
+      // Resize window when timestamp section is toggled
+      if (sectionId === 'sectionTimestamp') {
+        const win = getCurrentWindow();
+        const currentSize = await win.innerSize();
+        const newHeight = isCollapsing ? BASE_HEIGHT : BASE_HEIGHT + TIMESTAMP_SECTION_HEIGHT;
+        await win.setSize(new window.__TAURI__.window.LogicalSize(currentSize.width, newHeight));
+      }
     }
 
     // Charger le chemin actuel au démarrage

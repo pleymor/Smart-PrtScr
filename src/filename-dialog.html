@@ -55,12 +55,6 @@
       border-color: #667eea;
     }
 
-    .extension {
-      color: #666;
-      font-size: 14px;
-      font-weight: 500;
-    }
-
     .format-select {
       padding: 10px 12px;
       border: 2px solid #e0e0e0;
@@ -129,7 +123,6 @@
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
 
-    /* Section collapsible */
     .section {
       margin-top: 15px;
       border-top: 1px solid #e0e0e0;
@@ -210,10 +203,6 @@
       grid-column: 1 / -1;
     }
 
-    .option-row input[type="checkbox"] {
-      margin-right: 5px;
-    }
-
     .options-disabled {
       opacity: 0;
       pointer-events: none;
@@ -279,6 +268,7 @@
       padding: 4px 8px;
       border: none;
       background: #667eea;
+      color: white;
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
@@ -297,7 +287,7 @@
     <h2>Nom de la capture</h2>
     <div class="input-group">
       <input type="text" id="filename" autofocus>
-      <select id="imageFormat" class="format-select" onchange="updateFormat()">
+      <select id="imageFormat" class="format-select">
         <option value="jpg">.jpg</option>
         <option value="png">.png</option>
       </select>
@@ -306,25 +296,25 @@
 
     <div class="destination-row">
       <span class="destination-label">Dossier :</span>
-      <span class="destination-path" id="destinationPath" onclick="changeDestination()" title="Cliquez pour changer">Chargement...</span>
-      <button class="btn-folder" onclick="changeDestination()" title="Changer le dossier">📁</button>
+      <span class="destination-path" id="destinationPath" title="Cliquez pour changer">Chargement...</span>
+      <button class="btn-folder" id="btnChangeFolder" title="Changer le dossier">&#128193;</button>
     </div>
 
     <div class="section collapsed" id="sectionTimestamp">
-      <div class="section-header" onclick="toggleSection('sectionTimestamp')">
+      <div class="section-header" id="timestampHeader">
         <h3>Options d'horodatage</h3>
-        <span class="collapse-icon">▼</span>
+        <span class="collapse-icon">&#9660;</span>
       </div>
       <div class="section-content">
         <div class="option-row full-width" style="padding: 10px 0 5px 0; flex-direction: row; align-items: center;">
-          <input type="checkbox" id="timestampEnabled" onchange="updatePreview()">
+          <input type="checkbox" id="timestampEnabled">
           <label for="timestampEnabled" style="cursor: pointer;"><strong>Activer l'horodatage</strong></label>
         </div>
 
         <div id="timestampOptionsContainer" class="options-grid">
           <div class="option-row">
             <label>Type d'affichage</label>
-            <select id="timestampType" onchange="updatePreview()">
+            <select id="timestampType">
               <option value="banner-dark">Bandeau sombre</option>
               <option value="banner-light">Bandeau clair</option>
               <option value="overlay">Par-dessus l'image</option>
@@ -333,7 +323,7 @@
 
           <div class="option-row">
             <label>Position</label>
-            <select id="timestampPosition" onchange="updatePreview()">
+            <select id="timestampPosition">
               <option value="bottom">Bas</option>
               <option value="top">Haut</option>
             </select>
@@ -341,12 +331,12 @@
 
           <div class="option-row">
             <label>Taille du texte (px)</label>
-            <input type="number" id="timestampFontSize" min="8" max="72" value="14" onchange="updatePreview()" oninput="updatePreview()">
+            <input type="number" id="timestampFontSize" min="8" max="72" value="14">
           </div>
 
           <div class="option-row">
             <label>Couleur du texte</label>
-            <select id="timestampTextColor" onchange="updatePreview()">
+            <select id="timestampTextColor">
               <option value="white">Blanc</option>
               <option value="black">Noir</option>
               <option value="gray">Gris</option>
@@ -361,9 +351,9 @@
 
           <div class="option-row">
             <label>Alignement du texte</label>
-            <select id="timestampTextAlign" onchange="updatePreview()">
+            <select id="timestampTextAlign">
               <option value="left">Gauche</option>
-              <option value="center">Centré</option>
+              <option value="center">Centre</option>
               <option value="right">Droite</option>
             </select>
           </div>
@@ -371,27 +361,29 @@
           <div class="option-row">
             <label>Style du texte</label>
             <div class="style-buttons">
-              <label class="style-checkbox"><input type="checkbox" id="timestampBold" onchange="updatePreview()"> <b>G</b></label>
-              <label class="style-checkbox"><input type="checkbox" id="timestampItalic" onchange="updatePreview()"> <i>I</i></label>
-              <label class="style-checkbox"><input type="checkbox" id="timestampUnderline" onchange="updatePreview()"> <u>S</u></label>
+              <label class="style-checkbox"><input type="checkbox" id="timestampBold"> <b>G</b></label>
+              <label class="style-checkbox"><input type="checkbox" id="timestampItalic"> <i>I</i></label>
+              <label class="style-checkbox"><input type="checkbox" id="timestampUnderline"> <u>S</u></label>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="buttons">
-      <button class="btn-cancel" onclick="cancel()">Annuler</button>
-      <button class="btn-save" onclick="save()">Enregistrer</button>
+    <div class="buttons" style="-webkit-app-region: no-drag;">
+      <button class="btn-cancel" id="btnCancel" style="-webkit-app-region: no-drag;">Annuler</button>
+      <button class="btn-save" id="btnSave" style="-webkit-app-region: no-drag;">Enregistrer</button>
     </div>
   </div>
 
-  <script>
-    const { ipcRenderer } = require('electron');
+  <script type="module">
+    const { invoke } = window.__TAURI__.core;
+
     const input = document.getElementById('filename');
     const canvas = document.getElementById('preview-canvas');
     const ctx = canvas.getContext('2d');
     let originalImage = null;
+    let defaultFilename = '';
 
     // Couleurs
     const textColors = {
@@ -406,19 +398,12 @@
       magenta: '#ff00ff'
     };
 
-
     // Toggle section collapse
-    function toggleSection(sectionId) {
-      const section = document.getElementById(sectionId);
-      section.classList.toggle('collapsed');
+    document.getElementById('timestampHeader').addEventListener('click', () => {
+      document.getElementById('sectionTimestamp').classList.toggle('collapsed');
+    });
 
-      // Redimensionner la fenêtre
-      setTimeout(() => {
-        ipcRenderer.send('resize-dialog');
-      }, 350);
-    }
-
-    // Mettre à jour l'état des options
+    // Mettre a jour l'etat des options
     function updateOptionsState() {
       const enabled = document.getElementById('timestampEnabled').checked;
       const container = document.getElementById('timestampOptionsContainer');
@@ -429,7 +414,7 @@
       }
     }
 
-    // Mettre à jour l'aperçu
+    // Mettre a jour l'apercu
     function updatePreview() {
       updateOptionsState();
 
@@ -440,7 +425,6 @@
       const fontSize = options.fontSize || 14;
       const bannerHeight = Math.max(24, fontSize + 10);
 
-      // Calculer les dimensions du canvas
       const isOverlay = options.type === 'overlay';
       let canvasHeight = img.height;
       if (options.enabled && !isOverlay) {
@@ -450,22 +434,18 @@
       canvas.width = img.width;
       canvas.height = canvasHeight;
 
-      // Dessiner l'image
       if (options.enabled && !isOverlay && options.position === 'top') {
         ctx.drawImage(img, 0, bannerHeight);
       } else {
         ctx.drawImage(img, 0, 0);
       }
 
-      // Dessiner l'horodatage si activé
       if (options.enabled) {
         const now = new Date();
         const timestamp = now.toLocaleString('fr-FR');
         const textColor = textColors[options.textColor] || textColors.white;
-        const isOverlay = options.type === 'overlay';
         const bannerColor = options.type === 'banner-light' ? '#f5f5f5' : '#333333';
 
-        // Construire la police
         let fontStyle = '';
         if (options.italic) fontStyle += 'italic ';
         if (options.bold) fontStyle += 'bold ';
@@ -474,7 +454,6 @@
         ctx.font = fontStyle;
         ctx.fillStyle = textColor;
 
-        // Calculer la position X selon l'alignement
         let textX;
         if (options.textAlign === 'left') {
           ctx.textAlign = 'left';
@@ -487,7 +466,6 @@
           textX = img.width / 2;
         }
 
-        // Calculer la position Y
         let bannerY, textY;
         if (!isOverlay) {
           if (options.position === 'top') {
@@ -497,23 +475,19 @@
             bannerY = img.height;
             textY = img.height + bannerHeight / 2 + fontSize / 3;
           }
-          // Dessiner le bandeau
           ctx.fillStyle = bannerColor;
           ctx.fillRect(0, bannerY, img.width, bannerHeight);
           ctx.fillStyle = textColor;
         } else {
-          // Overlay
           if (options.position === 'top') {
-            textY = bannerHeight / 2 + fontSize / 3;
+            textY = 10 + fontSize;
           } else {
-            textY = img.height - bannerHeight / 2 + fontSize / 3;
+            textY = img.height - 10;
           }
         }
 
-        // Dessiner le texte
         ctx.fillText(timestamp, textX, textY);
 
-        // Soulignement
         if (options.underline) {
           const textWidth = ctx.measureText(timestamp).width;
           let underlineX;
@@ -534,7 +508,7 @@
       }
     }
 
-    // Charger les options d'horodatage
+    // Charger les options d'horodatage (camelCase du backend Rust)
     function loadTimestampOptions(options) {
       document.getElementById('timestampEnabled').checked = options.enabled;
       document.getElementById('timestampType').value = options.type;
@@ -548,7 +522,7 @@
       updateOptionsState();
     }
 
-    // Obtenir les options actuelles
+    // Obtenir les options actuelles (camelCase pour correspondre au backend Rust)
     function getCurrentOptions() {
       return {
         enabled: document.getElementById('timestampEnabled').checked,
@@ -565,67 +539,123 @@
 
     // Charger le dossier de destination
     async function loadDestination() {
-      const path = await ipcRenderer.invoke('get-save-path');
-      document.getElementById('destinationPath').textContent = path;
-      document.getElementById('destinationPath').title = path;
+      try {
+        const path = await invoke('get_save_path');
+        document.getElementById('destinationPath').textContent = path;
+        document.getElementById('destinationPath').title = path;
+      } catch (error) {
+        console.error('Error loading destination:', error);
+      }
     }
 
     // Changer le dossier de destination
     async function changeDestination() {
-      const newPath = await ipcRenderer.invoke('select-save-path');
-      if (newPath) {
-        document.getElementById('destinationPath').textContent = newPath;
-        document.getElementById('destinationPath').title = newPath;
+      try {
+        const newPath = await invoke('set_save_path');
+        if (newPath) {
+          document.getElementById('destinationPath').textContent = newPath;
+          document.getElementById('destinationPath').title = newPath;
+        }
+      } catch (error) {
+        console.error('Error changing destination:', error);
       }
     }
 
-    // Recevoir le nom par défaut et l'aperçu
-    ipcRenderer.on('default-filename', (event, defaultName) => {
-      input.placeholder = defaultName;
-      loadDestination();
-    });
+    // Sauvegarder
+    async function save() {
+      try {
+        const filename = input.value.trim() || defaultFilename;
+        const options = getCurrentOptions();
+        const imageFormat = document.getElementById('imageFormat').value;
 
-    ipcRenderer.on('preview-image', (event, base64Image) => {
-      const img = new Image();
-      img.onload = () => {
-        originalImage = img;
-        updatePreview();
-      };
-      img.src = `data:image/png;base64,${base64Image}`;
-    });
+        // S'assurer que fontSize est un entier valide
+        if (isNaN(options.fontSize) || options.fontSize < 8) {
+          options.fontSize = 14;
+        }
 
-    ipcRenderer.on('timestamp-options', (event, options) => {
-      loadTimestampOptions(options);
-      updatePreview();
-    });
+        console.log('Saving with data:', { filename, timestampOptions: options, imageFormat });
 
-    ipcRenderer.on('image-format', (event, format) => {
-      document.getElementById('imageFormat').value = format;
-    });
+        const savedPath = await invoke('save_screenshot', {
+          data: {
+            filename: filename,
+            timestampOptions: options,
+            imageFormat: imageFormat
+          }
+        });
 
-    // Mettre à jour le format (appelé quand on change le select)
-    function updateFormat() {
-      // Le format sera envoyé lors de la sauvegarde
+        console.log('Saved to:', savedPath);
+        await invoke('close_window', { label: 'filename-dialog' });
+      } catch (error) {
+        console.error('Error saving:', error);
+        alert('Erreur lors de la sauvegarde: ' + error);
+      }
     }
 
-    // Obtenir le format actuel
-    function getCurrentFormat() {
-      return document.getElementById('imageFormat').value;
+    // Annuler
+    async function cancel() {
+      try {
+        await invoke('cancel_screenshot');
+        await invoke('close_window', { label: 'filename-dialog' });
+      } catch (error) {
+        console.error('Error canceling:', error);
+      }
     }
 
-    function save() {
-      const filename = input.value.trim() || input.placeholder;
-      const options = getCurrentOptions();
-      const imageFormat = getCurrentFormat();
-      console.log('Saving with options:', options, 'format:', imageFormat);
-      ipcRenderer.send('filename-submit', { filename, timestampOptions: options, imageFormat });
+    // Initialisation
+    async function init() {
+      try {
+        // Charger le nom de fichier par defaut
+        defaultFilename = await invoke('get_default_filename');
+        input.placeholder = defaultFilename;
+
+        // Charger les options d'horodatage d'abord
+        const timestampOpts = await invoke('get_timestamp_options');
+        loadTimestampOptions(timestampOpts);
+
+        // Charger le format d'image
+        const format = await invoke('get_image_format');
+        document.getElementById('imageFormat').value = format;
+
+        // Charger la destination
+        await loadDestination();
+
+        // Charger l'apercu en dernier (et appeler updatePreview quand l'image est chargée)
+        const previewBase64 = await invoke('get_preview_image');
+        const img = new Image();
+        img.onload = () => {
+          originalImage = img;
+          updatePreview();
+        };
+        img.src = `data:image/png;base64,${previewBase64}`;
+      } catch (error) {
+        console.error('Error initializing:', error);
+      }
     }
 
-    function cancel() {
-      ipcRenderer.send('filename-cancel');
-    }
+    // Event listeners
+    console.log('Attaching event listeners...');
+    document.getElementById('btnSave').addEventListener('click', () => {
+      console.log('Save button clicked!');
+      save();
+    });
+    document.getElementById('btnCancel').addEventListener('click', () => {
+      console.log('Cancel button clicked!');
+      cancel();
+    });
+    document.getElementById('btnChangeFolder').addEventListener('click', changeDestination);
+    document.getElementById('destinationPath').addEventListener('click', changeDestination);
 
-    // Enter pour sauvegarder, Escape pour annuler
+    // Options preview update
+    ['timestampEnabled', 'timestampType', 'timestampPosition', 'timestampFontSize',
+     'timestampTextColor', 'timestampTextAlign', 'timestampBold', 'timestampItalic',
+     'timestampUnderline'].forEach(id => {
+      document.getElementById(id).addEventListener('change', updatePreview);
+      if (id === 'timestampFontSize') {
+        document.getElementById(id).addEventListener('input', updatePreview);
+      }
+    });
+
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         save();
@@ -633,6 +663,9 @@
         cancel();
       }
     });
+
+    // Start
+    init();
   </script>
 </body>
 </html>

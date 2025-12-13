@@ -24,3 +24,4 @@ build/
 .DS_Store
 Thumbs.db
 nul
+src-tauri/target/

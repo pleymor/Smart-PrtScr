@@ -1,63 +1,64 @@
-# Simple PrintScreen
+# Smart PrtScr
 
 Logiciel de capture d'écran pour Windows avec support multi-écrans, horodatage automatique et icône système.
 
-## ✨ Fonctionnalités
+## Fonctionnalités
 
-- ✂️ **Sélection rectangulaire** : Appuyez sur `PrtScr` pour dessiner une zone personnalisée à capturer
-- 🖥️ **Multi-écrans** : Support complet des configurations multi-moniteurs
-- 🕐 **Horodatage automatique** : Chaque capture inclut un header avec la date et l'heure
-- 💾 **Configuration persistante** : Choisissez votre dossier de destination (sauvegarde automatique)
-- 🎯 **Dossier par défaut** : Utilise le dossier "Captures d'écran" de Windows par défaut
-- 🔔 **Icône système (System Tray)** : L'application se minimise dans la barre des tâches
-- 🚀 **Démarrage automatique** : Option pour lancer l'application au démarrage de Windows
-- 🔕 **Mode silencieux** : Fonctionne en arrière-plan sans fenêtre intrusive
+- **Sélection rectangulaire** : Dessinez une zone personnalisée à capturer
+- **Capture plein écran** : Appuyez sur `PrtScr` pour capturer l'écran entier
+- **Multi-écrans** : Support complet des configurations multi-moniteurs
+- **Horodatage automatique** : Chaque capture inclut un bandeau avec la date et l'heure
+- **Configuration persistante** : Choisissez votre dossier de destination (sauvegarde automatique)
+- **Dossier par défaut** : Utilise le dossier "Captures d'écran" de Windows par défaut
+- **Icône système (System Tray)** : L'application se minimise dans la barre des tâches
+- **Démarrage automatique** : Option pour lancer l'application au démarrage de Windows
+- **Mode silencieux** : Fonctionne en arrière-plan sans fenêtre intrusive
+- **Format configurable** : PNG ou JPEG
 
-## 📥 Installation
+## Installation
 
-### Option 1 : Utiliser l'installateur (Recommandé pour utilisateurs finaux)
+### Option 1 : Utiliser l'installateur (Recommandé)
 
-1. Téléchargez le fichier `Simple PrintScreen Setup.exe` depuis les releases
+1. Téléchargez le fichier `Smart PrtScr Setup.exe` depuis les releases
 2. Exécutez l'installateur
 3. Suivez les instructions à l'écran
 4. L'application se lancera automatiquement après l'installation
 
 ### Option 2 : Version portable (Sans installation)
 
-1. Téléchargez le fichier `Simple PrintScreen Portable.exe` depuis les releases
+1. Téléchargez le fichier `Smart PrtScr Portable.exe` depuis les releases
 2. Placez-le dans un dossier de votre choix
 3. Double-cliquez pour lancer
 
-### Option 3 : Développement (Pour les développeurs)
+### Option 3 : Développement
 
-1. Clonez ou téléchargez ce projet
-2. Ouvrez **PowerShell** ou **CMD** dans le dossier du projet
-3. Installez les dépendances :
-   ```bash
-   npm install
-   ```
-4. Lancez l'application :
-   ```bash
-   npm start
-   ```
+```bash
+# Installer les dépendances
+npm install
 
-## 🎯 Utilisation
+# Lancer en mode développement
+npm run tauri:dev
+
+# Construire pour production
+npm run tauri:build
+```
+
+## Utilisation
 
 ### Première utilisation
 
 1. Après l'installation, l'application démarre automatiquement
-2. Une fenêtre de configuration s'affiche
-3. Configurez vos préférences :
-   - **Dossier de sauvegarde** : Choisissez où sauvegarder vos captures
-   - **Démarrage automatique** : Cochez pour lancer au démarrage de Windows
-4. L'application se minimise dans la barre des tâches (icône près de l'horloge)
+2. Une icône apparaît dans la barre des tâches (près de l'horloge)
+3. Clic gauche sur l'icône pour ouvrir les paramètres
+4. Clic droit sur l'icône pour accéder au menu rapide
 
-### Utilisation quotidienne
+### Raccourcis clavier
 
-L'application fonctionne en arrière-plan. Utilisez simplement le raccourci clavier :
-
-- **PrtScr** : Ouvre une fenêtre de sélection pour dessiner la zone à capturer
-- **Échap** : Annuler la sélection
+| Raccourci | Action |
+|-----------|--------|
+| `PrtScr` | Ouvre la fenêtre de sélection |
+| `Entrée` | Capturer tout l'écran |
+| `Échap` | Annuler la capture |
 
 ### Menu de l'icône système
 
@@ -65,87 +66,62 @@ Clic droit sur l'icône dans la barre des tâches pour :
 - Ouvrir la fenêtre de configuration
 - Capturer avec sélection
 - Ouvrir le dossier de sauvegarde
-- Activer/désactiver le démarrage automatique
 - Quitter l'application
 
-## ⚙️ Configuration
+## Configuration
 
 ### Dossier de destination
 - **Par défaut** : `%USERPROFILE%\Pictures\Screenshots`
 - Modifiable via l'interface de configuration
 - Les modifications sont sauvegardées automatiquement
 
-### Démarrage automatique
-- Activez cette option pour que l'application démarre avec Windows
-- L'application se lance en mode masqué (icône système uniquement)
-- Accessible via l'interface ou le menu de l'icône système
+### Format d'image
+- **PNG** : Qualité maximale, fichiers plus volumineux
+- **JPEG** : Fichiers plus légers
 
-## 📸 Format des captures
+### Bandeau d'horodatage
+- Position configurable (haut/bas)
+- Alignement configurable (gauche/centre/droite)
+- Couleur de fond et de texte personnalisables
+- Mode overlay (texte directement sur l'image)
 
-Les captures d'écran sont sauvegardées au format PNG avec :
-- Un header contenant l'horodatage (date et heure en français)
-- Nom de fichier : `Screenshot_YYYY-MM-DDTHH-MM-SS.png`
-- Qualité PNG maximale
+## Format des captures
 
-## 🛠️ Construction de l'installateur
+Les captures d'écran sont sauvegardées avec :
+- Un bandeau contenant l'horodatage (date et heure)
+- Nom de fichier : `YYYY-MM-DDTHH-MM-SS_capture.png` ou `.jpg`
 
-Pour les développeurs souhaitant créer l'installateur :
+## Technologies utilisées
 
-```bash
-# Installer les dépendances
-npm install
+- **Tauri v2** : Framework d'application desktop léger et sécurisé
+- **Rust** : Backend performant pour la capture et le traitement d'images
+- **screenshots** : Capture d'écran multi-moniteurs
+- **image/imageproc** : Traitement d'images
+- **ab_glyph** : Rendu de texte pour l'horodatage
 
-# Créer l'installateur Windows
-npm run build
+## Structure du projet
 
-# Créer la version portable
-npm run build:portable
-
-# Créer les deux versions
-npm run dist
+```
+simple-printscreen/
+├── src-tauri/           # Backend Rust (Tauri)
+│   ├── src/lib.rs       # Logique principale
+│   ├── Cargo.toml       # Dépendances Rust
+│   └── tauri.conf.json  # Configuration Tauri
+├── src/                 # Frontend (HTML/JS)
+│   ├── index.html       # Interface principale
+│   ├── selection.html   # Interface de sélection
+│   └── filename-dialog.html  # Dialogue de sauvegarde
+└── package.json         # Configuration npm
 ```
 
-Les fichiers seront générés dans le dossier `dist/`.
+## Notes importantes
 
-## 📋 Raccourcis clavier
-
-| Raccourci | Action |
-|-----------|--------|
-| `PrtScr` | Sélection rectangulaire |
-| `Échap` | Annuler la sélection |
-
-## ⚠️ Notes importantes
-
-- **PowerShell/CMD requis** : Pour le développement, utilisez PowerShell ou CMD (Git Bash n'est pas compatible avec Electron sur Windows)
-- **Droits administrateur** : Peuvent être nécessaires pour la capture de touches globales sur certains systèmes
 - **Windows 10/11** : L'application est optimisée pour Windows 10 et 11
 
-## 💻 Technologies utilisées
-
-- **Electron** : Framework d'application desktop
-- **screenshot-desktop** : Capture d'écran multi-moniteurs
-- **sharp** : Traitement d'images
-- **node-global-key-listener** : Écoute des raccourcis clavier globaux
-- **electron-store** : Persistance de la configuration
-- **electron-builder** : Création de l'installateur Windows
-
-## 📦 Distribution via le Windows Store
-
-L'application est en cours de soumission au Microsoft Store. En attendant, utilisez les installateurs disponibles dans les releases GitHub.
-
-## 🐛 Problèmes connus
-
-- Sur certains systèmes, les droits administrateur peuvent être nécessaires pour capturer les touches globales
-- L'icône système peut ne pas s'afficher correctement si Windows Explorer est redémarré (relancer l'application)
-
-## 📝 Licence
+## Licence
 
 ISC
 
-## 🤝 Contribution
+## Contribution
 
 Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
-
-## 📧 Support
-
-Pour toute question ou problème, ouvrez une issue sur GitHub.

@@ -1,14 +1,10 @@
 {
   "name": "smart-prtscr",
-  "version": "1.0.0",
-  "main": "main.js",
+  "version": "2.0.0",
   "scripts": {
-    "start": "electron .",
-    "generate-icon": "node generate-icon.js",
-    "build": "electron-builder --windows",
-    "build:portable": "electron-builder --windows portable",
-    "build:appx": "electron-builder --windows appx",
-    "dist": "electron-builder"
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "keywords": [
     "screenshot",
@@ -19,69 +15,8 @@
   "author": "Adrien Laugueux",
   "license": "ISC",
   "description": "Simple and fast screenshot capture tool for Windows",
-  "build": {
-    "appId": "com.pleymor.smartprtscr",
-    "productName": "Smart PrtScr",
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "icon.ico",
-      "signAndEditExecutable": false
-    },
-    "appx": {
-      "identityName": "Pleymor.smart-prtscr",
-      "displayName": "smart-prtscr",
-      "publisher": "CN=B79D1225-9D8B-4940-8036-D7FDBD5EA2D3",
-      "publisherDisplayName": "Pleymor",
-      "applicationId": "SmartPrtScr",
-      "languages": [
-        "fr-FR",
-        "en-US"
-      ],
-      "backgroundColor": "#667eea"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Smart PrtScr",
-      "runAfterFinish": true
-    },
-    "files": [
-      "main.js",
-      "index.html",
-      "selection.html",
-      "filename-dialog.html",
-      "icon.ico",
-      "package.json",
-      "!node_modules/node-global-key-listener/bin/MacKeyServer"
-    ],
-    "directories": {
-      "output": "dist"
-    }
-  },
-  "dependencies": {
-    "electron-store": "^11.0.2",
-    "node-global-key-listener": "^0.3.0",
-    "sharp": "^0.34.5"
-  },
   "devDependencies": {
-    "electron": "^33.3.1",
-    "electron-builder": "^26.0.12",
-    "electron-windows-store": "^2.1.0",
-    "png-to-ico": "^3.0.1"
+    "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/cli": "^2.9.6"
   }
 }

@@ -710,7 +710,7 @@ fn open_main_window(app: &AppHandle) -> Result<(), String> {
         .title("Smart PrtScr")
         .icon(icon).map_err(|e| e.to_string())?
         .inner_size(450.0, 340.0)
-        .resizable(false)
+        .resizable(true)
         .decorations(false)
         .center()
         .build()

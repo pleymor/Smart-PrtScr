@@ -10,6 +10,10 @@
       box-sizing: border-box;
     }
 
+    html, body {
+      overflow: hidden;
+    }
+
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: transparent;
@@ -388,6 +392,11 @@
 
   <script type="module">
     const { invoke } = window.__TAURI__.core;
+    const { getCurrentWindow, LogicalSize } = window.__TAURI__.window;
+
+    const BASE_HEIGHT = 340;
+    const TIMESTAMP_SECTION_HEIGHT = 180;
+    const WINDOW_WIDTH = 480;
 
     const input = document.getElementById('filename');
     const canvas = document.getElementById('preview-canvas');
@@ -408,9 +417,19 @@
       magenta: '#ff00ff'
     };
 
-    // Toggle section collapse
-    document.getElementById('timestampHeader').addEventListener('click', () => {
-      document.getElementById('sectionTimestamp').classList.toggle('collapsed');
+    // Toggle section collapse with window resize
+    document.getElementById('timestampHeader').addEventListener('click', async () => {
+      const section = document.getElementById('sectionTimestamp');
+      const isCollapsing = !section.classList.contains('collapsed');
+      section.classList.toggle('collapsed');
+
+      try {
+        const win = getCurrentWindow();
+        const newHeight = isCollapsing ? BASE_HEIGHT : BASE_HEIGHT + TIMESTAMP_SECTION_HEIGHT;
+        await win.setSize(new LogicalSize(WINDOW_WIDTH, newHeight));
+      } catch (error) {
+        console.error('Error resizing window:', error);
+      }
     });
 
     // Mettre a jour l'etat des options

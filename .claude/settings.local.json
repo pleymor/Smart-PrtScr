@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npm start)",
+      "Bash(node:*)",
+      "Bash(npx electron:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(taskkill:*)",
+      "Bash(dir:*)",
+      "Bash(./node_modules/.bin/electron.cmd:*)",
+      "Bash(node_modules/.bin/electron.cmd:*)",
+      "Bash(powershell -Command \"Stop-Process -Name ''electron'',''node'' -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item -Path ''node_modules'' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path ''package-lock.json'' -Force -ErrorAction SilentlyContinue; Write-Host ''Cleanup complete''\")",
+      "Bash(npm start:*)",
+      "Bash(ls:*)",
+      "Bash(cmd.exe /c \"npm start\")",
+      "Bash(\"./node_modules/electron/dist/electron.exe\" .)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nImplémentation complète du logiciel de capture d''écran Windows\n\nFonctionnalités :\n- Capture de l''écran actif avec PrtScr\n- Sélection rectangulaire avec Ctrl+PrtScr\n- Support multi-écrans\n- Horodatage automatique dans un header sur chaque image\n- Configuration persistante du dossier de destination\n- Dossier par défaut : Pictures/Screenshots de Windows\n- Interface graphique de configuration\n- Lanceur Windows (start.bat) pour compatibilité\n\nTechnologies : Electron, screenshot-desktop, sharp, node-global-key-listener, electron-store\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(exit 0)",
+      "Bash(powershell:*)",
+      "Bash(timeout /t 3 /nobreak)",
+      "Bash(if exist dist rmdir /s /q dist)",
+      "Bash(npm run build:*)",
+      "Bash(npm run build:portable:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+      "Bash(npm ls:*)",
+      "Bash(git stash:*)",
+      "Bash(git restore:*)",
+      "Bash(findstr:*)"
+    ]
+  }
+}

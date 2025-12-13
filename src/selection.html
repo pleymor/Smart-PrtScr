@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Selection de zone</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      cursor: crosshair;
+      background: #000;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #screenshot {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: brightness(0.7);
+    }
+
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 10;
+    }
+
+    .instruction {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 20px 40px;
+      border-radius: 10px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 18px;
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+    }
+
+    .instruction.show {
+      display: block;
+    }
+
+    .help {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 14px;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // Early debug - runs before Tauri module loads
+    document.body.style.background = 'black';
+    console.log('EARLY SCRIPT RUNNING');
+  </script>
+  <img id="screenshot" />
+  <canvas id="canvas"></canvas>
+  <div class="instruction" id="instruction">Dessinez un rectangle ou cliquez pour tout capturer</div>
+  <div class="help">Glissez pour selectionner | Entree = capturer | Echap = annuler</div>
+
+  <script>
+    const { invoke, convertFileSrc } = window.__TAURI__.core;
+
+    // Log to terminal
+    const log = (msg) => invoke('log_message', { message: msg }).catch(() => {});
+
+    const getTime = () => new Date().toISOString().substr(11, 12);
+    log('JS inline script loaded');
+    console.log('[PERF]', getTime(), 'JS START');
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const screenshotImg = document.getElementById('screenshot');
+
+    // Configurer le canvas en plein ecran
+    canvas.width = window.screen.width;
+    canvas.height = window.screen.height;
+
+    let isDrawing = false;
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let currentY = 0;
+
+    // Charger la capture d'ecran au demarrage
+    async function loadScreenshot() {
+      log('loadScreenshot called');
+      try {
+        log('invoke capture_screen START');
+        console.log('[PERF]', getTime(), 'invoke capture_screen START');
+        const filePath = await invoke('capture_screen');
+        log('invoke capture_screen DONE, path: ' + filePath);
+        console.log('[PERF]', getTime(), 'invoke capture_screen DONE');
+
+        log('Setting img.src via asset protocol');
+        console.log('[PERF]', getTime(), 'Setting img.src');
+        // Convert file path to asset protocol URL
+        const assetUrl = convertFileSrc(filePath);
+        log('Asset URL: ' + assetUrl);
+        screenshotImg.src = assetUrl;
+
+        screenshotImg.onload = async () => {
+          log('Image loaded successfully');
+          console.log('[PERF]', getTime(), 'Image loaded');
+          // Show window now that image is ready
+          await invoke('show_selection_window');
+          log('Window shown');
+        };
+
+        screenshotImg.onerror = (e) => {
+          log('Image load ERROR: ' + e);
+          console.error('[PERF]', getTime(), 'Image load error:', e);
+        };
+      } catch (error) {
+        log('ERROR capturing screen: ' + error);
+        console.error('[PERF]', getTime(), 'Error capturing screen:', error);
+      }
+    }
+
+    // Afficher les instructions au debut
+    const instruction = document.getElementById('instruction');
+    instruction.classList.add('show');
+    setTimeout(() => {
+      instruction.classList.remove('show');
+    }, 2000);
+
+    // Dessiner le rectangle de selection
+    function drawSelection() {
+      // Effacer le canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!isDrawing) return;
+
+      const x = Math.min(startX, currentX);
+      const y = Math.min(startY, currentY);
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+
+      // Dessiner le rectangle de selection
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, width, height);
+
+      // Remplissage semi-transparent
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+      ctx.fillRect(x, y, width, height);
+
+      // Afficher les dimensions
+      ctx.fillStyle = 'white';
+      ctx.font = '14px Arial';
+      ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + 5, y + 20);
+    }
+
+    // Envoyer la selection et fermer
+    async function completeSelection(x, y, width, height) {
+      try {
+        await invoke('process_selection', {
+          bounds: {
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(width),
+            height: Math.round(height)
+          }
+        });
+        // Fermer la fenetre de selection
+        await invoke('close_window', { label: 'selection' });
+      } catch (error) {
+        console.error('Error processing selection:', error);
+      }
+    }
+
+    // Annuler la selection
+    async function cancelSelection() {
+      try {
+        await invoke('cancel_screenshot');
+        await invoke('close_window', { label: 'selection' });
+      } catch (error) {
+        console.error('Error canceling:', error);
+      }
+    }
+
+    // Evenements de souris
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      currentX = e.clientX;
+      currentY = e.clientY;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      currentX = e.clientX;
+      currentY = e.clientY;
+      drawSelection();
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (!isDrawing) return;
+      isDrawing = false;
+
+      const x = Math.min(startX, currentX);
+      const y = Math.min(startY, currentY);
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+
+      // Envoyer les coordonnees au processus principal
+      if (width > 5 && height > 5) {
+        // Selection rectangulaire
+        completeSelection(x, y, width, height);
+      } else {
+        // Simple clic : capturer tout l'ecran
+        completeSelection(0, 0, canvas.width, canvas.height);
+      }
+    });
+
+    // Touche Echap pour annuler, Entree pour capturer tout
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        cancelSelection();
+      } else if (e.key === 'Enter') {
+        completeSelection(0, 0, canvas.width, canvas.height);
+      }
+    });
+
+    // Charger la capture au demarrage
+    log('About to call loadScreenshot');
+    loadScreenshot();
+    log('loadScreenshot called (async)');
+  </script>
+</body>
+</html>

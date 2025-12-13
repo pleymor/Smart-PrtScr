@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Smart PrtScr</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      box-sizing: border-box;
+      -webkit-app-region: drag;
+    }
+
+    .container {
+      background: #fff;
+      padding: 15px;
+      color: #333;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      -webkit-app-region: drag;
+      overflow-y: auto;
+    }
+
+    button, input, select, label, .path-section, .section-header {
+      -webkit-app-region: no-drag;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 24px;
+      padding: 0;
+      transition: background 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .close-btn:hover {
+      background: #c0392b;
+    }
+
+    h1 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #333;
+      font-size: 18px;
+      padding-right: 30px;
+    }
+
+    .section {
+      margin-bottom: 10px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      padding: 5px 0;
+    }
+
+    .section-header:hover h2 {
+      color: #333;
+    }
+
+    .section h2 {
+      font-size: 13px;
+      margin: 0;
+      color: #555;
+      transition: color 0.2s;
+    }
+
+    .collapse-icon {
+      font-size: 10px;
+      color: #888;
+      transition: transform 0.3s;
+    }
+
+    .section.collapsed .collapse-icon {
+      transform: rotate(-90deg);
+    }
+
+    .section-content {
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+      max-height: 1000px;
+    }
+
+    .section.collapsed .section-content {
+      max-height: 0;
+    }
+
+    .path-section {
+      background: #f9f9f9;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+
+    .path-display {
+      background: white;
+      padding: 6px 8px;
+      border-radius: 3px;
+      border: 1px solid #ddd;
+      margin: 6px 0;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: 11px;
+    }
+
+    button {
+      background: #555;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-right: 6px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #333;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .notification {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: #4caf50;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: none;
+      animation: slideIn 0.3s ease-out;
+      max-width: 250px;
+      word-break: break-all;
+      font-size: 12px;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .info {
+      background: #e3f2fd;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border-left: 3px solid #2196f3;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #555;
+    }
+
+    .option-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .option-row label {
+      font-size: 12px;
+    }
+
+    .option-row select {
+      padding: 4px 8px;
+      border-radius: 3px;
+      border: 1px solid #ddd;
+      background: white;
+      font-size: 11px;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 8px 0;
+    }
+
+    .options-grid .option-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .options-grid .option-row label {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .options-grid .option-row select,
+    .options-grid .option-row input[type="number"] {
+      padding: 5px 8px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      background: white;
+      font-size: 11px;
+    }
+
+    .options-grid .option-row input[type="number"] {
+      width: 60px;
+    }
+
+    .options-grid .option-row.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .options-disabled {
+      opacity: 0;
+      pointer-events: none;
+      max-height: 0;
+      overflow: hidden;
+    }
+
+    .style-buttons {
+      display: flex;
+      gap: 6px;
+    }
+
+    .style-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      padding: 3px 6px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      background: white;
+      font-size: 11px;
+    }
+
+    .style-checkbox:hover {
+      background: #f0f0f0;
+    }
+
+    .style-checkbox input {
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button class="close-btn" onclick="closeWindow()" title="Fermer">×</button>
+    <h1>Smart PrtScr</h1>
+
+    <div class="section" id="sectionConfig">
+      <div class="section-header" onclick="toggleSection('sectionConfig')">
+        <h2>Configuration</h2>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="section-content">
+        <div class="path-section">
+          <label style="font-size: 12px;"><strong>Dossier de destination :</strong></label>
+          <div class="path-display" id="currentPath">Chargement...</div>
+          <button onclick="changePath()">Changer</button>
+          <button onclick="resetPath()">Réinitialiser</button>
+        </div>
+        <div class="path-section" style="margin-top: 8px;">
+          <label style="font-size: 12px;">
+            <input type="checkbox" id="autoStart" onchange="toggleAutoStart()">
+            <strong>Lancer au démarrage de Windows</strong>
+          </label>
+        </div>
+        <div class="path-section" style="margin-top: 8px;">
+          <div class="option-row">
+            <label><strong>Format d'image :</strong></label>
+            <select id="imageFormat" onchange="updateImageFormat()">
+              <option value="jpg" selected>JPEG</option>
+              <option value="png">PNG</option>
+            </select>
+          </div>
+        </div>
+        <div class="path-section" style="margin-top: 8px;">
+          <label style="font-size: 12px;">
+            <input type="checkbox" id="disableWindowsPrtScr" onchange="toggleWindowsPrtScr()">
+            <strong>Désactiver capture Windows (recommandé)</strong>
+          </label>
+          <div class="info">
+            Désactive l'outil de capture Windows pour que Smart PrtScr gère PrintScreen exclusivement.
+            <br><em>Redémarrage de Windows requis.</em>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section collapsed" id="sectionTimestamp">
+      <div class="section-header" onclick="toggleSection('sectionTimestamp')">
+        <h2>Horodatage</h2>
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="section-content">
+        <div class="path-section">
+          <div class="option-row" style="padding: 4px 0;">
+            <input type="checkbox" id="timestampEnabled" onchange="updateTimestampOptions()">
+            <label for="timestampEnabled" style="cursor: pointer;"><strong>Activer l'horodatage</strong></label>
+          </div>
+
+          <div id="timestampOptionsContainer" class="options-grid">
+            <div class="option-row">
+              <label>Type d'affichage</label>
+              <select id="timestampType" onchange="updateTimestampOptions()">
+                <option value="banner-dark" selected>Bandeau sombre</option>
+                <option value="banner-light">Bandeau clair</option>
+                <option value="overlay">Par-dessus l'image</option>
+              </select>
+            </div>
+
+            <div class="option-row">
+              <label>Position</label>
+              <select id="timestampPosition" onchange="updateTimestampOptions()">
+                <option value="bottom" selected>Bas</option>
+                <option value="top">Haut</option>
+              </select>
+            </div>
+
+            <div class="option-row">
+              <label>Taille du texte (px)</label>
+              <input type="number" id="timestampFontSize" min="8" max="72" value="14" onchange="updateTimestampOptions()">
+            </div>
+
+            <div class="option-row">
+              <label>Couleur du texte</label>
+              <select id="timestampTextColor" onchange="updateTimestampOptions()">
+                <option value="white" selected>Blanc</option>
+                <option value="black">Noir</option>
+                <option value="gray">Gris</option>
+                <option value="red">Rouge</option>
+                <option value="green">Vert</option>
+                <option value="blue">Bleu</option>
+                <option value="yellow">Jaune</option>
+                <option value="cyan">Cyan</option>
+                <option value="magenta">Magenta</option>
+              </select>
+            </div>
+
+            <div class="option-row">
+              <label>Alignement</label>
+              <select id="timestampTextAlign" onchange="updateTimestampOptions()">
+                <option value="left">Gauche</option>
+                <option value="center" selected>Centre</option>
+                <option value="right">Droite</option>
+              </select>
+            </div>
+
+            <div class="option-row">
+              <label>Style du texte</label>
+              <div class="style-buttons">
+                <label class="style-checkbox"><input type="checkbox" id="timestampBold" onchange="updateTimestampOptions()"> <b>G</b></label>
+                <label class="style-checkbox"><input type="checkbox" id="timestampItalic" onchange="updateTimestampOptions()"> <i>I</i></label>
+                <label class="style-checkbox"><input type="checkbox" id="timestampUnderline" onchange="updateTimestampOptions()"> <u>S</u></label>
+              </div>
+            </div>
+
+            <div class="option-row full-width" style="margin-top: 4px;">
+              <button onclick="resetTimestampOptions()">Réinitialiser</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notification" id="notification"></div>
+
+  <script type="module">
+    const { invoke } = window.__TAURI__.core;
+
+    // Toggle section collapse
+    window.toggleSection = function(sectionId) {
+      const section = document.getElementById(sectionId);
+      section.classList.toggle('collapsed');
+    }
+
+    // Charger le chemin actuel au démarrage
+    async function loadCurrentPath() {
+      try {
+        const path = await invoke('get_save_path');
+        document.getElementById('currentPath').textContent = path;
+      } catch (error) {
+        console.error('Error loading path:', error);
+      }
+    }
+
+    // Changer le dossier de destination
+    window.changePath = async function() {
+      try {
+        const newPath = await invoke('set_save_path');
+        if (newPath) {
+          document.getElementById('currentPath').textContent = newPath;
+          showNotification('Dossier modifié avec succès !');
+        }
+      } catch (error) {
+        console.error('Error changing path:', error);
+      }
+    }
+
+    // Réinitialiser au dossier par défaut
+    window.resetPath = async function() {
+      try {
+        const defaultPath = await invoke('reset_save_path');
+        document.getElementById('currentPath').textContent = defaultPath;
+        showNotification('Dossier réinitialisé au dossier par défaut');
+      } catch (error) {
+        console.error('Error resetting path:', error);
+      }
+    }
+
+    // Afficher une notification
+    function showNotification(message) {
+      const notif = document.getElementById('notification');
+      notif.textContent = message;
+      notif.style.display = 'block';
+      setTimeout(() => {
+        notif.style.display = 'none';
+      }, 3000);
+    }
+
+    // Charger le statut du démarrage automatique
+    async function loadAutoStart() {
+      try {
+        const autoStart = await invoke('get_auto_start');
+        document.getElementById('autoStart').checked = autoStart;
+      } catch (error) {
+        console.error('Error loading auto start:', error);
+      }
+    }
+
+    // Basculer le démarrage automatique
+    window.toggleAutoStart = async function() {
+      const checkbox = document.getElementById('autoStart');
+      try {
+        await invoke('set_auto_start', { enabled: checkbox.checked });
+        showNotification(checkbox.checked ? 'Démarrage automatique activé' : 'Démarrage automatique désactivé');
+      } catch (error) {
+        console.error('Error toggling auto start:', error);
+      }
+    }
+
+    // Masquer la fenêtre (réduire dans le tray)
+    window.closeWindow = async function() {
+      try {
+        await invoke('hide_window', { label: 'main' });
+      } catch (error) {
+        console.error('Error hiding window:', error);
+      }
+    }
+
+    // Charger le statut de la capture Windows
+    async function loadWindowsPrtScr() {
+      try {
+        const disabled = await invoke('get_windows_prtscr_disabled');
+        document.getElementById('disableWindowsPrtScr').checked = disabled;
+      } catch (error) {
+        document.getElementById('disableWindowsPrtScr').checked = false;
+      }
+    }
+
+    // Basculer la capture Windows
+    window.toggleWindowsPrtScr = async function() {
+      const checkbox = document.getElementById('disableWindowsPrtScr');
+      try {
+        const success = await invoke('set_windows_prtscr_disabled', { disabled: checkbox.checked });
+        if (success) {
+          showNotification(checkbox.checked ?
+            'Capture Windows désactivée. Redémarrez Windows pour appliquer.' :
+            'Capture Windows réactivée. Redémarrez Windows pour appliquer.');
+        }
+      } catch (error) {
+        checkbox.checked = !checkbox.checked;
+        showNotification('Erreur: ' + error);
+      }
+    }
+
+    // Charger les options d'horodatage
+    async function loadTimestampOptions() {
+      try {
+        const options = await invoke('get_timestamp_options');
+        document.getElementById('timestampEnabled').checked = options.enabled;
+        document.getElementById('timestampType').value = options.type;
+        document.getElementById('timestampPosition').value = options.position;
+        document.getElementById('timestampFontSize').value = options.fontSize;
+        document.getElementById('timestampTextColor').value = options.textColor;
+        document.getElementById('timestampTextAlign').value = options.textAlign;
+        document.getElementById('timestampBold').checked = options.bold || false;
+        document.getElementById('timestampItalic').checked = options.italic || false;
+        document.getElementById('timestampUnderline').checked = options.underline || false;
+        updateOptionsContainerState(options.enabled);
+      } catch (error) {
+        console.error('Error loading timestamp options:', error);
+      }
+    }
+
+    // Mettre à jour l'état du conteneur d'options
+    function updateOptionsContainerState(enabled) {
+      const container = document.getElementById('timestampOptionsContainer');
+      if (enabled) {
+        container.classList.remove('options-disabled');
+      } else {
+        container.classList.add('options-disabled');
+      }
+    }
+
+    // Mettre à jour les options d'horodatage
+    window.updateTimestampOptions = async function() {
+      const options = {
+        enabled: document.getElementById('timestampEnabled').checked,
+        type: document.getElementById('timestampType').value,
+        position: document.getElementById('timestampPosition').value,
+        fontSize: parseInt(document.getElementById('timestampFontSize').value, 10),
+        textColor: document.getElementById('timestampTextColor').value,
+        textAlign: document.getElementById('timestampTextAlign').value,
+        bold: document.getElementById('timestampBold').checked,
+        italic: document.getElementById('timestampItalic').checked,
+        underline: document.getElementById('timestampUnderline').checked
+      };
+
+      updateOptionsContainerState(options.enabled);
+
+      try {
+        await invoke('set_timestamp_options', { options });
+        showNotification('Options d\'horodatage mises à jour');
+      } catch (error) {
+        console.error('Error updating timestamp options:', error);
+      }
+    }
+
+    // Réinitialiser les options d'horodatage
+    window.resetTimestampOptions = async function() {
+      try {
+        const options = await invoke('reset_timestamp_options');
+        document.getElementById('timestampEnabled').checked = options.enabled;
+        document.getElementById('timestampType').value = options.type;
+        document.getElementById('timestampPosition').value = options.position;
+        document.getElementById('timestampFontSize').value = options.fontSize;
+        document.getElementById('timestampTextColor').value = options.textColor;
+        document.getElementById('timestampTextAlign').value = options.textAlign;
+        document.getElementById('timestampBold').checked = options.bold || false;
+        document.getElementById('timestampItalic').checked = options.italic || false;
+        document.getElementById('timestampUnderline').checked = options.underline || false;
+        updateOptionsContainerState(options.enabled);
+        showNotification('Options d\'horodatage réinitialisées');
+      } catch (error) {
+        console.error('Error resetting timestamp options:', error);
+      }
+    }
+
+    // Charger le format d'image
+    async function loadImageFormat() {
+      try {
+        const format = await invoke('get_image_format');
+        document.getElementById('imageFormat').value = format;
+      } catch (error) {
+        document.getElementById('imageFormat').value = 'jpg';
+      }
+    }
+
+    // Mettre à jour le format d'image
+    window.updateImageFormat = async function() {
+      const format = document.getElementById('imageFormat').value;
+      try {
+        await invoke('set_image_format', { format });
+        showNotification(format === 'png' ? 'Format PNG sélectionné' : 'Format JPEG sélectionné');
+      } catch (error) {
+        console.error('Error updating image format:', error);
+      }
+    }
+
+    // Charger tous les paramètres au démarrage (un seul appel)
+    async function loadAllSettings() {
+      try {
+        const settings = await invoke('get_all_settings');
+
+        // Save path
+        document.getElementById('currentPath').textContent = settings.savePath;
+
+        // Auto start
+        document.getElementById('autoStart').checked = settings.autoStart;
+
+        // Image format
+        document.getElementById('imageFormat').value = settings.imageFormat;
+
+        // Windows PrtScr
+        document.getElementById('disableWindowsPrtScr').checked = settings.windowsPrtScrDisabled;
+
+        // Timestamp options
+        const opts = settings.timestampOptions;
+        document.getElementById('timestampEnabled').checked = opts.enabled;
+        document.getElementById('timestampType').value = opts.type;
+        document.getElementById('timestampPosition').value = opts.position;
+        document.getElementById('timestampFontSize').value = opts.fontSize;
+        document.getElementById('timestampTextColor').value = opts.textColor;
+        document.getElementById('timestampTextAlign').value = opts.textAlign;
+        document.getElementById('timestampBold').checked = opts.bold || false;
+        document.getElementById('timestampItalic').checked = opts.italic || false;
+        document.getElementById('timestampUnderline').checked = opts.underline || false;
+        updateOptionsContainerState(opts.enabled);
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    }
+
+    loadAllSettings();
+  </script>
+</body>
+</html>

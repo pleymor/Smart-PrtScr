@@ -709,7 +709,7 @@ fn open_main_window(app: &AppHandle) -> Result<(), String> {
     WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Smart PrtScr")
         .icon(icon).map_err(|e| e.to_string())?
-        .inner_size(450.0, 480.0)
+        .inner_size(450.0, 340.0)
         .resizable(false)
         .decorations(false)
         .center()

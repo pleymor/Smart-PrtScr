@@ -401,11 +401,21 @@ async fn get_save_path(app: AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 async fn set_save_path(app: AppHandle) -> Result<Option<String>, String> {
+    // Get the appropriate parent window (filename-dialog during capture, main otherwise)
+    let parent_window = app.get_webview_window("filename-dialog")
+        .or_else(|| app.get_webview_window("main"));
+
     // Open folder picker dialog (blocking)
-    let folder = app.dialog()
+    let mut builder = app.dialog()
         .file()
-        .set_title("Choisir le dossier de destination")
-        .blocking_pick_folder();
+        .set_title("Choisir le dossier de destination");
+
+    // Set parent window if available
+    if let Some(ref window) = parent_window {
+        builder = builder.set_parent(window);
+    }
+
+    let folder = builder.blocking_pick_folder();
 
     if let Some(path) = folder {
         let path_str = path.to_string();

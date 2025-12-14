@@ -32,28 +32,39 @@
       -webkit-app-region: drag;
     }
 
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .content {
+      -webkit-app-region: no-drag;
+    }
+
     button, input, select, label, .path-section, .section-header {
       -webkit-app-region: no-drag;
     }
 
     .close-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
       background: #e74c3c;
       color: white;
       border: none;
-      width: 24px;
-      height: 24px;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
       cursor: pointer;
       font-size: 14px;
-      line-height: 24px;
+      line-height: 22px;
       padding: 0;
       transition: background 0.3s;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
     }
 
     .close-btn:hover {
@@ -61,11 +72,9 @@
     }
 
     h1 {
-      margin-top: 0;
-      margin-bottom: 10px;
+      margin: 0;
       color: #333;
-      font-size: 18px;
-      padding-right: 30px;
+      font-size: 16px;
     }
 
     .section {
@@ -275,9 +284,11 @@
 </head>
 <body>
   <div class="container">
-    <button class="close-btn" onclick="closeWindow()" title="Fermer">×</button>
-    <h1>Smart PrtScr</h1>
-
+    <div class="header">
+      <h1>Smart PrtScr</h1>
+      <button class="close-btn" onclick="closeWindow()" title="Fermer">×</button>
+    </div>
+    <div class="content">
     <div class="section" id="sectionConfig">
       <div class="section-header" onclick="toggleSection('sectionConfig')">
         <h2>Configuration</h2>
@@ -392,6 +403,7 @@
           </div>
         </div>
       </div>
+    </div>
     </div>
   </div>
 

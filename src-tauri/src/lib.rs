@@ -552,7 +552,7 @@ async fn capture_screen(_app: AppHandle, state: State<'_, AppState>) -> Result<S
 
 #[tauri::command]
 async fn process_selection(
-    app: AppHandle,
+    _app: AppHandle,
     state: State<'_, AppState>,
     bounds: SelectionBounds,
 ) -> Result<(), String> {
@@ -585,10 +585,10 @@ async fn process_selection(
         image_data: cropped_data,
         default_filename: generate_default_filename(),
     });
-
-    // Open filename dialog
     drop(pending); // Release lock
-    open_filename_dialog(&app)?;
+
+    // filename-dialog is already open (opened simultaneously with selection window)
+    // Save will be triggered from the dialog
 
     Ok(())
 }
@@ -681,7 +681,7 @@ async fn cancel_screenshot(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
-fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
+fn open_filename_dialog(app: &AppHandle, bottom_right: bool) -> Result<(), String> {
     println!("[LOG] {} open_filename_dialog called", Local::now().format("%H:%M:%S%.3f"));
     let existing = app.get_webview_window("filename-dialog");
     if existing.is_some() {
@@ -691,16 +691,33 @@ fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
     let icon_bytes = include_bytes!("../icons/32x32.png");
     let icon = Image::from_bytes(icon_bytes).map_err(|e| e.to_string())?;
 
-    WebviewWindowBuilder::new(app, "filename-dialog", WebviewUrl::App("filename-dialog.html".into()))
-        .title("Smart PrtScr - Save")
+    // Get screen dimensions for positioning
+    let screens = Screen::all().map_err(|e| e.to_string())?;
+    let screen = screens.first().ok_or("No screen found")?;
+    let info = screen.display_info;
+
+    let window_width = 480.0;
+    let window_height = 400.0;
+    let margin = 20.0;
+
+    let mut builder = WebviewWindowBuilder::new(app, "filename-dialog", WebviewUrl::App("filename-dialog.html".into()))
+        .title("Smart PrtScr - Options")
         .icon(icon).map_err(|e| e.to_string())?
-        .inner_size(480.0, 400.0)
+        .inner_size(window_width, window_height)
         .resizable(true)
         .decorations(false)
-        .always_on_top(true)
-        .center()
-        .build()
-        .map_err(|e| e.to_string())?;
+        .always_on_top(true);
+
+    // Position in bottom-right corner when opening with selection window
+    if bottom_right {
+        let x = (info.width as f64) - window_width - margin;
+        let y = (info.height as f64) - window_height - margin - 50.0; // Extra margin for taskbar
+        builder = builder.position(x, y);
+    } else {
+        builder = builder.center();
+    }
+
+    builder.build().map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -773,6 +790,12 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
         .build()
         .map_err(|e| e.to_string())?;
     println!("[PERF] {} Window creation took {:?}", Local::now().format("%H:%M:%S%.3f"), t6.elapsed());
+
+    // Open filename-dialog simultaneously (positioned in bottom-right corner, always on top)
+    let t7 = Instant::now();
+    open_filename_dialog(app, true)?;
+    println!("[PERF] {} filename-dialog creation took {:?}", Local::now().format("%H:%M:%S%.3f"), t7.elapsed());
+
     println!("[PERF] {} TOTAL open_selection_window: {:?}", Local::now().format("%H:%M:%S%.3f"), start.elapsed());
 
     // Window will be shown by frontend after image is loaded (via show_selection_window command)
@@ -841,6 +864,18 @@ async fn show_selection_window(app: AppHandle) -> Result<(), String> {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
     }
+    // Bring filename-dialog to front after selection window is shown
+    if let Some(dialog) = app.get_webview_window("filename-dialog") {
+        dialog.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn focus_dialog(app: AppHandle) -> Result<(), String> {
+    if let Some(dialog) = app.get_webview_window("filename-dialog") {
+        dialog.set_focus().map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -897,6 +932,7 @@ pub fn run() {
             open_folder,
             log_message,
             show_selection_window,
+            focus_dialog,
         ])
         .setup(|app| {
             // Setup system tray

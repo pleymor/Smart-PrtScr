@@ -78,8 +78,8 @@
   </script>
   <img id="screenshot" />
   <canvas id="canvas"></canvas>
-  <div class="instruction" id="instruction">Dessinez un rectangle ou cliquez pour tout capturer</div>
-  <div class="help">Glissez pour selectionner | Entree = capturer | Echap = annuler</div>
+  <div class="instruction" id="instruction">Dessinez un rectangle pour selectionner</div>
+  <div class="help">Glissez pour selectionner | Poignees pour modifier | Entree/Double-clic = capturer | Echap = annuler</div>
 
   <script>
     const { invoke, convertFileSrc } = window.__TAURI__.core;
@@ -99,11 +99,303 @@
     canvas.width = window.screen.width;
     canvas.height = window.screen.height;
 
-    let isDrawing = false;
-    let startX = 0;
-    let startY = 0;
-    let currentX = 0;
-    let currentY = 0;
+    // ============================================
+    // T001: Constants
+    // ============================================
+    const HANDLE_SIZE = 10;
+    const HANDLE_HIT_AREA = 20;
+    const MIN_SELECTION_SIZE = 10;
+
+    // ============================================
+    // T002: State machine
+    // ============================================
+    const SelectionState = {
+      IDLE: 'idle',
+      DRAWING: 'drawing',
+      MODIFIABLE: 'modifiable',
+      RESIZING: 'resizing',
+      MOVING: 'moving'
+    };
+
+    const appState = {
+      current: SelectionState.IDLE,
+      selection: null,
+      activeHandle: null,
+      dragStart: null,
+      drawStart: null
+    };
+
+    // ============================================
+    // T003: normalizeSelection helper
+    // ============================================
+    function normalizeSelection(x1, y1, x2, y2) {
+      return {
+        x: Math.min(x1, x2),
+        y: Math.min(y1, y2),
+        width: Math.abs(x2 - x1),
+        height: Math.abs(y2 - y1)
+      };
+    }
+
+    // ============================================
+    // T004: getHandlePositions helper
+    // ============================================
+    function getHandlePositions(sel) {
+      if (!sel) return {};
+      const { x, y, width, height } = sel;
+      return {
+        nw: { x: x, y: y },
+        n:  { x: x + width / 2, y: y },
+        ne: { x: x + width, y: y },
+        e:  { x: x + width, y: y + height / 2 },
+        se: { x: x + width, y: y + height },
+        s:  { x: x + width / 2, y: y + height },
+        sw: { x: x, y: y + height },
+        w:  { x: x, y: y + height / 2 }
+      };
+    }
+
+    // ============================================
+    // T005: getHandleAtPoint helper
+    // ============================================
+    function getHandleAtPoint(mouseX, mouseY, sel) {
+      if (!sel) return null;
+      const handles = getHandlePositions(sel);
+      const halfHit = HANDLE_HIT_AREA / 2;
+
+      for (const [name, pos] of Object.entries(handles)) {
+        if (Math.abs(mouseX - pos.x) <= halfHit && Math.abs(mouseY - pos.y) <= halfHit) {
+          return name;
+        }
+      }
+      return null;
+    }
+
+    // ============================================
+    // T006: isInsideSelection helper
+    // ============================================
+    function isInsideSelection(mouseX, mouseY, sel) {
+      if (!sel) return false;
+      return mouseX >= sel.x && mouseX <= sel.x + sel.width &&
+             mouseY >= sel.y && mouseY <= sel.y + sel.height;
+    }
+
+    // ============================================
+    // T007: getCursorForPosition helper
+    // ============================================
+    function getCursorForPosition(mouseX, mouseY, sel) {
+      if (!sel) return 'crosshair';
+
+      const handle = getHandleAtPoint(mouseX, mouseY, sel);
+      if (handle) {
+        const cursorMap = {
+          nw: 'nwse-resize',
+          se: 'nwse-resize',
+          ne: 'nesw-resize',
+          sw: 'nesw-resize',
+          n: 'ns-resize',
+          s: 'ns-resize',
+          e: 'ew-resize',
+          w: 'ew-resize'
+        };
+        return cursorMap[handle];
+      }
+
+      if (isInsideSelection(mouseX, mouseY, sel)) {
+        return 'move';
+      }
+
+      return 'crosshair';
+    }
+
+    // ============================================
+    // T009: drawSelectionWithHandles
+    // ============================================
+    function drawSelectionWithHandles(sel) {
+      if (!sel) return;
+
+      const { x, y, width, height } = sel;
+
+      // Draw selection rectangle
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, width, height);
+
+      // Semi-transparent fill
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+      ctx.fillRect(x, y, width, height);
+
+      // Draw dimensions
+      ctx.fillStyle = 'white';
+      ctx.font = '14px Arial';
+      ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + 5, y + 20);
+
+      // Draw handles
+      const handles = getHandlePositions(sel);
+      const halfSize = HANDLE_SIZE / 2;
+
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
+
+      for (const pos of Object.values(handles)) {
+        ctx.fillRect(pos.x - halfSize, pos.y - halfSize, HANDLE_SIZE, HANDLE_SIZE);
+        ctx.strokeRect(pos.x - halfSize, pos.y - halfSize, HANDLE_SIZE, HANDLE_SIZE);
+      }
+    }
+
+    // ============================================
+    // T008: Modified drawSelection for state machine
+    // ============================================
+    function drawSelection() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (appState.current === SelectionState.DRAWING && appState.drawStart) {
+        const sel = normalizeSelection(
+          appState.drawStart.x, appState.drawStart.y,
+          appState.drawStart.currentX, appState.drawStart.currentY
+        );
+
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(sel.x, sel.y, sel.width, sel.height);
+
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+        ctx.fillRect(sel.x, sel.y, sel.width, sel.height);
+
+        ctx.fillStyle = 'white';
+        ctx.font = '14px Arial';
+        ctx.fillText(`${Math.round(sel.width)} x ${Math.round(sel.height)}`, sel.x + 5, sel.y + 20);
+      } else if (appState.selection &&
+                 (appState.current === SelectionState.MODIFIABLE ||
+                  appState.current === SelectionState.RESIZING ||
+                  appState.current === SelectionState.MOVING)) {
+        drawSelectionWithHandles(appState.selection);
+      }
+    }
+
+    // ============================================
+    // T011-T013, T027: Resize logic with constraints
+    // ============================================
+    function applyResize(mouseX, mouseY) {
+      if (!appState.selection || !appState.activeHandle) return;
+
+      const sel = appState.selection;
+      const handle = appState.activeHandle;
+
+      mouseX = Math.max(0, Math.min(canvas.width, mouseX));
+      mouseY = Math.max(0, Math.min(canvas.height, mouseY));
+
+      let newX = sel.x;
+      let newY = sel.y;
+      let newWidth = sel.width;
+      let newHeight = sel.height;
+
+      switch (handle) {
+        case 'nw':
+          newWidth = sel.x + sel.width - mouseX;
+          newHeight = sel.y + sel.height - mouseY;
+          newX = mouseX;
+          newY = mouseY;
+          break;
+        case 'n':
+          newHeight = sel.y + sel.height - mouseY;
+          newY = mouseY;
+          break;
+        case 'ne':
+          newWidth = mouseX - sel.x;
+          newHeight = sel.y + sel.height - mouseY;
+          newY = mouseY;
+          break;
+        case 'e':
+          newWidth = mouseX - sel.x;
+          break;
+        case 'se':
+          newWidth = mouseX - sel.x;
+          newHeight = mouseY - sel.y;
+          break;
+        case 's':
+          newHeight = mouseY - sel.y;
+          break;
+        case 'sw':
+          newWidth = sel.x + sel.width - mouseX;
+          newHeight = mouseY - sel.y;
+          newX = mouseX;
+          break;
+        case 'w':
+          newWidth = sel.x + sel.width - mouseX;
+          newX = mouseX;
+          break;
+      }
+
+      // T027: Handle swap logic for negative dimensions
+      if (newWidth < 0) {
+        newX = newX + newWidth;
+        newWidth = Math.abs(newWidth);
+        const swapH = { nw: 'ne', ne: 'nw', sw: 'se', se: 'sw', w: 'e', e: 'w' };
+        if (swapH[handle]) appState.activeHandle = swapH[handle];
+      }
+      if (newHeight < 0) {
+        newY = newY + newHeight;
+        newHeight = Math.abs(newHeight);
+        const swapV = { nw: 'sw', sw: 'nw', ne: 'se', se: 'ne', n: 's', s: 'n' };
+        if (swapV[handle]) appState.activeHandle = swapV[handle];
+      }
+
+      // T012: Enforce minimum size
+      if (newWidth < MIN_SELECTION_SIZE) {
+        if (handle.includes('w')) {
+          newX = sel.x + sel.width - MIN_SELECTION_SIZE;
+        }
+        newWidth = MIN_SELECTION_SIZE;
+      }
+      if (newHeight < MIN_SELECTION_SIZE) {
+        if (handle.includes('n')) {
+          newY = sel.y + sel.height - MIN_SELECTION_SIZE;
+        }
+        newHeight = MIN_SELECTION_SIZE;
+      }
+
+      // T013: Keep within canvas bounds
+      if (newX < 0) {
+        newWidth += newX;
+        newX = 0;
+      }
+      if (newY < 0) {
+        newHeight += newY;
+        newY = 0;
+      }
+      if (newX + newWidth > canvas.width) {
+        newWidth = canvas.width - newX;
+      }
+      if (newY + newHeight > canvas.height) {
+        newHeight = canvas.height - newY;
+      }
+
+      appState.selection = { x: newX, y: newY, width: newWidth, height: newHeight };
+    }
+
+    // ============================================
+    // T018-T019: Move logic with constraints
+    // ============================================
+    function applyMove(mouseX, mouseY) {
+      if (!appState.selection || !appState.dragStart) return;
+
+      const sel = appState.selection;
+      const deltaX = mouseX - appState.dragStart.x;
+      const deltaY = mouseY - appState.dragStart.y;
+
+      let newX = appState.dragStart.selX + deltaX;
+      let newY = appState.dragStart.selY + deltaY;
+
+      // T019: Constrain to canvas bounds
+      if (newX < 0) newX = 0;
+      if (newY < 0) newY = 0;
+      if (newX + sel.width > canvas.width) newX = canvas.width - sel.width;
+      if (newY + sel.height > canvas.height) newY = canvas.height - sel.height;
+
+      appState.selection = { x: newX, y: newY, width: sel.width, height: sel.height };
+    }
 
     // Charger la capture d'ecran au demarrage
     async function loadScreenshot() {
@@ -117,7 +409,6 @@
 
         log('Setting img.src via asset protocol');
         console.log('[PERF]', getTime(), 'Setting img.src');
-        // Convert file path to asset protocol URL
         const assetUrl = convertFileSrc(filePath);
         log('Asset URL: ' + assetUrl);
         screenshotImg.src = assetUrl;
@@ -125,7 +416,6 @@
         screenshotImg.onload = async () => {
           log('Image loaded successfully');
           console.log('[PERF]', getTime(), 'Image loaded');
-          // Show window now that image is ready
           await invoke('show_selection_window');
           log('Window shown');
         };
@@ -147,33 +437,6 @@
       instruction.classList.remove('show');
     }, 2000);
 
-    // Dessiner le rectangle de selection
-    function drawSelection() {
-      // Effacer le canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (!isDrawing) return;
-
-      const x = Math.min(startX, currentX);
-      const y = Math.min(startY, currentY);
-      const width = Math.abs(currentX - startX);
-      const height = Math.abs(currentY - startY);
-
-      // Dessiner le rectangle de selection
-      ctx.strokeStyle = '#00ff00';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, width, height);
-
-      // Remplissage semi-transparent
-      ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-      ctx.fillRect(x, y, width, height);
-
-      // Afficher les dimensions
-      ctx.fillStyle = 'white';
-      ctx.font = '14px Arial';
-      ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + 5, y + 20);
-    }
-
     // Envoyer la selection et fermer
     async function completeSelection(x, y, width, height) {
       try {
@@ -185,7 +448,6 @@
             height: Math.round(height)
           }
         });
-        // Fermer la fenetre de selection
         await invoke('close_window', { label: 'selection' });
       } catch (error) {
         console.error('Error processing selection:', error);
@@ -202,47 +464,121 @@
       }
     }
 
-    // Evenements de souris
+    // ============================================
+    // T010, T016, T025: mousedown handler
+    // ============================================
     canvas.addEventListener('mousedown', (e) => {
-      isDrawing = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      currentX = e.clientX;
-      currentY = e.clientY;
-    });
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
 
-    canvas.addEventListener('mousemove', (e) => {
-      if (!isDrawing) return;
-      currentX = e.clientX;
-      currentY = e.clientY;
-      drawSelection();
-    });
+      if (appState.current === SelectionState.IDLE) {
+        appState.current = SelectionState.DRAWING;
+        appState.drawStart = { x: mouseX, y: mouseY, currentX: mouseX, currentY: mouseY };
 
-    canvas.addEventListener('mouseup', (e) => {
-      if (!isDrawing) return;
-      isDrawing = false;
-
-      const x = Math.min(startX, currentX);
-      const y = Math.min(startY, currentY);
-      const width = Math.abs(currentX - startX);
-      const height = Math.abs(currentY - startY);
-
-      // Envoyer les coordonnees au processus principal
-      if (width > 5 && height > 5) {
-        // Selection rectangulaire
-        completeSelection(x, y, width, height);
-      } else {
-        // Simple clic : capturer tout l'ecran
-        completeSelection(0, 0, canvas.width, canvas.height);
+      } else if (appState.current === SelectionState.MODIFIABLE) {
+        const handle = getHandleAtPoint(mouseX, mouseY, appState.selection);
+        if (handle) {
+          appState.current = SelectionState.RESIZING;
+          appState.activeHandle = handle;
+        } else if (isInsideSelection(mouseX, mouseY, appState.selection)) {
+          appState.current = SelectionState.MOVING;
+          appState.dragStart = {
+            x: mouseX,
+            y: mouseY,
+            selX: appState.selection.x,
+            selY: appState.selection.y
+          };
+        } else {
+          appState.current = SelectionState.DRAWING;
+          appState.selection = null;
+          appState.drawStart = { x: mouseX, y: mouseY, currentX: mouseX, currentY: mouseY };
+          drawSelection();
+        }
       }
     });
 
-    // Touche Echap pour annuler, Entree pour capturer tout
+    // ============================================
+    // T011, T015, T018, T021: mousemove handler
+    // ============================================
+    canvas.addEventListener('mousemove', (e) => {
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      if (appState.current === SelectionState.DRAWING && appState.drawStart) {
+        appState.drawStart.currentX = mouseX;
+        appState.drawStart.currentY = mouseY;
+        drawSelection();
+
+      } else if (appState.current === SelectionState.RESIZING) {
+        applyResize(mouseX, mouseY);
+        drawSelection();
+
+      } else if (appState.current === SelectionState.MOVING) {
+        applyMove(mouseX, mouseY);
+        drawSelection();
+
+      } else if (appState.current === SelectionState.MODIFIABLE) {
+        const cursor = getCursorForPosition(mouseX, mouseY, appState.selection);
+        canvas.style.cursor = cursor;
+      } else {
+        canvas.style.cursor = 'crosshair';
+      }
+    });
+
+    // ============================================
+    // T014, T020, T022: mouseup handler
+    // ============================================
+    canvas.addEventListener('mouseup', (e) => {
+      if (appState.current === SelectionState.DRAWING && appState.drawStart) {
+        const sel = normalizeSelection(
+          appState.drawStart.x, appState.drawStart.y,
+          appState.drawStart.currentX, appState.drawStart.currentY
+        );
+
+        if (sel.width >= MIN_SELECTION_SIZE && sel.height >= MIN_SELECTION_SIZE) {
+          appState.selection = sel;
+          appState.current = SelectionState.MODIFIABLE;
+          appState.drawStart = null;
+          drawSelection();
+        } else {
+          completeSelection(0, 0, canvas.width, canvas.height);
+        }
+
+      } else if (appState.current === SelectionState.RESIZING) {
+        appState.current = SelectionState.MODIFIABLE;
+        appState.activeHandle = null;
+
+      } else if (appState.current === SelectionState.MOVING) {
+        appState.current = SelectionState.MODIFIABLE;
+        appState.dragStart = null;
+      }
+    });
+
+    // ============================================
+    // T024: Double-click to confirm
+    // ============================================
+    canvas.addEventListener('dblclick', (e) => {
+      if (appState.current === SelectionState.MODIFIABLE && appState.selection) {
+        if (isInsideSelection(e.clientX, e.clientY, appState.selection)) {
+          const sel = appState.selection;
+          completeSelection(sel.x, sel.y, sel.width, sel.height);
+        }
+      }
+    });
+
+    // ============================================
+    // T023: keydown handler
+    // ============================================
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         cancelSelection();
       } else if (e.key === 'Enter') {
-        completeSelection(0, 0, canvas.width, canvas.height);
+        if (appState.selection) {
+          const sel = appState.selection;
+          completeSelection(sel.x, sel.y, sel.width, sel.height);
+        } else {
+          completeSelection(0, 0, canvas.width, canvas.height);
+        }
       }
     });
 

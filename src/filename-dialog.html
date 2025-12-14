@@ -27,10 +27,49 @@
       background: #fff;
       padding: 15px;
       width: 100%;
-      height: 100%;
       box-sizing: border-box;
       -webkit-app-region: drag;
-      overflow-y: auto;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .header h2 {
+      margin: 0;
+      color: #333;
+      font-size: 16px;
+    }
+
+    .close-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 22px;
+      padding: 0;
+      transition: background 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .close-btn:hover {
+      background: #c0392b;
+    }
+
+    .content {
+      -webkit-app-region: no-drag;
     }
 
     button, input, select, label, .preview, .input-group, .destination-row, .section-header, .buttons {
@@ -40,7 +79,7 @@
     h2 {
       color: #333;
       margin-bottom: 10px;
-      font-size: 16px;
+      font-size: 14px;
     }
 
     .input-group {
@@ -295,7 +334,12 @@
 </head>
 <body>
   <div class="container">
-    <div class="preview">
+    <div class="header">
+      <h2>Smart PrtScr</h2>
+      <button class="close-btn" id="btnClose" title="Fermer">×</button>
+    </div>
+    <div class="content">
+      <div class="preview">
       <canvas id="preview-canvas"></canvas>
     </div>
     <h2>Nom de la capture</h2>
@@ -387,6 +431,7 @@
     <div class="buttons">
       <button class="btn-cancel" id="btnCancel">Annuler</button>
       <button class="btn-save" id="btnSave">Enregistrer</button>
+    </div>
     </div>
   </div>
 
@@ -692,6 +737,9 @@
     });
     document.getElementById('btnCancel').addEventListener('click', () => {
       console.log('Cancel button clicked!');
+      cancel();
+    });
+    document.getElementById('btnClose').addEventListener('click', () => {
       cancel();
     });
     document.getElementById('btnChangeFolder').addEventListener('click', changeDestination);

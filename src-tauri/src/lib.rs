@@ -13,17 +13,102 @@ use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Emitter, Listener, Manager, State, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_dialog::DialogExt;
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_store::StoreExt;
+
 
 #[cfg(target_os = "windows")]
 use winreg::enums::*;
 #[cfg(target_os = "windows")]
 use winreg::RegKey;
+
+// Global hotkey handler for Windows (Win+Shift+PrintScreen works in fullscreen games)
+#[cfg(target_os = "windows")]
+mod keyboard_hook {
+    use super::*;
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DefWindowProcW, GetMessageW, RegisterClassW,
+        TranslateMessage, DispatchMessageW, DestroyWindow,
+        WNDCLASSW, MSG, WM_HOTKEY, WINDOW_EX_STYLE, WINDOW_STYLE,
+    };
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        RegisterHotKey, UnregisterHotKey, MOD_WIN, MOD_SHIFT, MOD_NOREPEAT,
+    };
+    use windows::core::PCWSTR;
+    use std::sync::OnceLock;
+
+    static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+
+    const VK_SNAPSHOT: u32 = 0x2C;
+    const HOTKEY_WIN_SHIFT_PRTSCR: i32 = 1;
+    const HOTKEY_PRTSCR: i32 = 2;
+
+    unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        if msg == WM_HOTKEY {
+            let hotkey_id = wparam.0 as i32;
+            if hotkey_id == HOTKEY_WIN_SHIFT_PRTSCR || hotkey_id == HOTKEY_PRTSCR {
+                println!("[HOTKEY] Capture hotkey pressed (id={})", hotkey_id);
+                if let Some(app) = APP_HANDLE.get() {
+                    let _ = app.emit("trigger-capture", ());
+                }
+            }
+            return LRESULT(0);
+        }
+        DefWindowProcW(hwnd, msg, wparam, lparam)
+    }
+
+    pub fn start_hook(app: AppHandle) {
+        let _ = APP_HANDLE.set(app);
+
+        std::thread::spawn(|| {
+            unsafe {
+                let class_name: Vec<u16> = "SmartPrtScrHotkey\0".encode_utf16().collect();
+                let wc = WNDCLASSW {
+                    lpfnWndProc: Some(wnd_proc),
+                    lpszClassName: PCWSTR(class_name.as_ptr()),
+                    ..Default::default()
+                };
+                RegisterClassW(&wc);
+
+                let hwnd = CreateWindowExW(
+                    WINDOW_EX_STYLE::default(),
+                    PCWSTR(class_name.as_ptr()),
+                    PCWSTR::null(),
+                    WINDOW_STYLE::default(),
+                    0, 0, 0, 0,
+                    HWND(-3isize as *mut std::ffi::c_void), // HWND_MESSAGE
+                    None,
+                    None,
+                    None,
+                ).unwrap();
+
+                // Win+Shift+PrintScreen (works in fullscreen games)
+                if RegisterHotKey(hwnd, HOTKEY_WIN_SHIFT_PRTSCR, MOD_WIN | MOD_SHIFT | MOD_NOREPEAT, VK_SNAPSHOT).is_ok() {
+                    println!("[HOTKEY] Win+Shift+PrintScreen registered");
+                }
+
+                // PrintScreen alone (for normal desktop use)
+                if RegisterHotKey(hwnd, HOTKEY_PRTSCR, MOD_NOREPEAT, VK_SNAPSHOT).is_ok() {
+                    println!("[HOTKEY] PrintScreen registered");
+                }
+
+                let mut msg = MSG::default();
+                while GetMessageW(&mut msg, None, 0, 0).0 > 0 {
+                    let _ = TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
+                }
+
+                let _ = UnregisterHotKey(hwnd, HOTKEY_WIN_SHIFT_PRTSCR);
+                let _ = UnregisterHotKey(hwnd, HOTKEY_PRTSCR);
+                let _ = DestroyWindow(hwnd);
+            }
+        });
+    }
+}
 
 // State structures
 #[derive(Clone)]
@@ -782,7 +867,6 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec!["--hidden"]),
         ))
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = open_main_window(app);
         }))
@@ -876,28 +960,21 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Setup global shortcut for PrintScreen
+            // Event listener for capture hotkey
             let app_handle = app.handle().clone();
-            app.global_shortcut().on_shortcut("PrintScreen", move |_app, _shortcut, _event| {
-                let app_clone = app_handle.clone();
-                // Check if selection window exists
-                if let Some(window) = app_clone.get_webview_window("selection") {
-                    // Capture full screen
+            app.listen("trigger-capture", move |_event| {
+                println!("[EVENT] trigger-capture received");
+                let state: State<'_, AppState> = app_handle.state();
+                if let Some(window) = app_handle.get_webview_window("selection") {
                     let _ = window.emit("capture-full-screen", ());
                 } else {
-                    // Open selection window - get state from app handle
-                    let state: State<'_, AppState> = app_clone.state();
-                    let _ = open_selection_window(&app_clone, &state);
+                    let _ = open_selection_window(&app_handle, &state);
                 }
-            }).map_err(|e| e.to_string())?;
+            });
 
-            // Setup Escape shortcut
-            let app_handle2 = app.handle().clone();
-            app.global_shortcut().on_shortcut("Escape", move |_app, _shortcut, _event| {
-                if let Some(window) = app_handle2.get_webview_window("selection") {
-                    let _ = window.close();
-                }
-            }).map_err(|e| e.to_string())?;
+            // Start global hotkey handler
+            #[cfg(target_os = "windows")]
+            keyboard_hook::start_hook(app.handle().clone());
 
             if cfg!(debug_assertions) {
                 app.handle().plugin(

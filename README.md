@@ -1,127 +1,107 @@
 # Smart PrtScr
 
-Logiciel de capture d'écran pour Windows avec support multi-écrans, horodatage automatique et icône système.
+A lightweight screenshot tool for Windows with real-time timestamp preview, multi-monitor support, and system tray integration.
 
-## Fonctionnalités
+## Features
 
-- **Sélection rectangulaire** : Dessinez une zone personnalisée à capturer
-- **Capture plein écran** : Appuyez sur `PrtScr` pour capturer l'écran entier
-- **Multi-écrans** : Support complet des configurations multi-moniteurs
-- **Horodatage automatique** : Chaque capture inclut un bandeau avec la date et l'heure
-- **Configuration persistante** : Choisissez votre dossier de destination (sauvegarde automatique)
-- **Dossier par défaut** : Utilise le dossier "Captures d'écran" de Windows par défaut
-- **Icône système (System Tray)** : L'application se minimise dans la barre des tâches
-- **Démarrage automatique** : Option pour lancer l'application au démarrage de Windows
-- **Mode silencieux** : Fonctionne en arrière-plan sans fenêtre intrusive
-- **Format configurable** : PNG ou JPEG
+- **Selection Rectangle**: Draw a custom area to capture with resize handles
+- **Real-time Timestamp Preview**: See exactly how your screenshot will look before saving
+- **Live Options Editing**: Modify timestamp settings and see changes instantly on the selection
+- **Multi-monitor Support**: Works seamlessly across multiple displays
+- **Customizable Timestamp**: Banner (dark/light) or overlay mode, position, font size, color, alignment, and text styles
+- **System Tray**: Runs quietly in the background with quick access menu
+- **Auto-start**: Optional launch at Windows startup
+- **Configurable Output**: PNG or JPEG format, custom save folder
+
+## Demo
+
+[![Demo Video](https://img.youtube.com/vi/dIJptb2p3BU/maxresdefault.jpg)](https://www.youtube.com/watch?v=dIJptb2p3BU)
 
 ## Installation
 
-### Option 1 : Utiliser l'installateur (Recommandé)
+### Option 1: Installer (Recommended)
 
-1. Téléchargez le fichier `Smart PrtScr Setup.exe` depuis les releases
-2. Exécutez l'installateur
-3. Suivez les instructions à l'écran
-4. L'application se lancera automatiquement après l'installation
+1. Download `Smart PrtScr Setup.exe` from the releases
+2. Run the installer and follow the instructions
+3. The application starts automatically after installation
 
-### Option 2 : Version portable (Sans installation)
+### Option 2: Portable Version
 
-1. Téléchargez le fichier `Smart PrtScr Portable.exe` depuis les releases
-2. Placez-le dans un dossier de votre choix
-3. Double-cliquez pour lancer
+1. Download `Smart PrtScr Portable.exe` from the releases
+2. Place it anywhere you like
+3. Double-click to run
 
-### Option 3 : Développement
+### Option 3: Build from Source
 
 ```bash
-# Installer les dépendances
+# Install dependencies
 npm install
 
-# Lancer en mode développement
+# Run in development mode
 npm run tauri:dev
 
-# Construire pour production
+# Build for production
 npm run tauri:build
 ```
 
-## Utilisation
+## Usage
 
-### Première utilisation
+### Keyboard Shortcuts
 
-1. Après l'installation, l'application démarre automatiquement
-2. Une icône apparaît dans la barre des tâches (près de l'horloge)
-3. Clic gauche sur l'icône pour ouvrir les paramètres
-4. Clic droit sur l'icône pour accéder au menu rapide
+| Shortcut | Action |
+|----------|--------|
+| `PrintScreen` | Open selection window with options dialog |
+| `Win+Shift+PrintScreen` | Full screen capture (selection covers entire screen) |
+| `Escape` | Cancel capture |
 
-### Raccourcis clavier
+### Capture Workflow
 
-| Raccourci | Action |
-|-----------|--------|
-| `PrtScr` | Ouvre la fenêtre de sélection |
-| `Entrée` | Capturer tout l'écran |
-| `Échap` | Annuler la capture |
+1. Press `PrintScreen` to start a capture
+2. Both the selection window and options dialog open simultaneously
+3. Draw a rectangle on the screen to select the area
+4. The timestamp preview appears on your selection in real-time
+5. Adjust timestamp options in the dialog - changes reflect instantly
+6. Click **Save** to capture, or press `Escape` to cancel
 
-### Menu de l'icône système
+### System Tray Menu
 
-Clic droit sur l'icône dans la barre des tâches pour :
-- Ouvrir la fenêtre de configuration
-- Capturer avec sélection
-- Ouvrir le dossier de sauvegarde
-- Quitter l'application
+Right-click the tray icon to:
+- Open settings window
+- Start a new capture
+- Open the screenshots folder
+- Quit the application
+
+## Timestamp Options
+
+| Option | Values |
+|--------|--------|
+| Type | Banner Dark, Banner Light, Overlay |
+| Position | Top, Bottom |
+| Font Size | 8-72px |
+| Text Color | White, Black, Gray, Red, Green, Blue, Yellow, Cyan, Magenta |
+| Alignment | Left, Center, Right |
+| Style | Bold, Italic, Underline |
 
 ## Configuration
 
-### Dossier de destination
-- **Par défaut** : `%USERPROFILE%\Pictures\Screenshots`
-- Modifiable via l'interface de configuration
-- Les modifications sont sauvegardées automatiquement
+- **Save Folder**: Default is `Pictures/Screenshots`, changeable in settings
+- **Image Format**: PNG (best quality) or JPEG (smaller files)
+- **Filename**: Auto-generated with timestamp, or enter a custom name
 
-### Format d'image
-- **PNG** : Qualité maximale, fichiers plus volumineux
-- **JPEG** : Fichiers plus légers
+## Requirements
 
-### Bandeau d'horodatage
-- Position configurable (haut/bas)
-- Alignement configurable (gauche/centre/droite)
-- Couleur de fond et de texte personnalisables
-- Mode overlay (texte directement sur l'image)
+- Windows 10 or 11
 
-## Format des captures
+## Tech Stack
 
-Les captures d'écran sont sauvegardées avec :
-- Un bandeau contenant l'horodatage (date et heure)
-- Nom de fichier : `YYYY-MM-DDTHH-MM-SS_capture.png` ou `.jpg`
+- **Tauri v2**: Lightweight desktop application framework
+- **Rust**: Backend for screen capture and image processing
+- **HTML/CSS/JS**: Simple frontend UI
 
-## Technologies utilisées
-
-- **Tauri v2** : Framework d'application desktop léger et sécurisé
-- **Rust** : Backend performant pour la capture et le traitement d'images
-- **screenshots** : Capture d'écran multi-moniteurs
-- **image/imageproc** : Traitement d'images
-- **ab_glyph** : Rendu de texte pour l'horodatage
-
-## Structure du projet
-
-```
-simple-printscreen/
-├── src-tauri/           # Backend Rust (Tauri)
-│   ├── src/lib.rs       # Logique principale
-│   ├── Cargo.toml       # Dépendances Rust
-│   └── tauri.conf.json  # Configuration Tauri
-├── src/                 # Frontend (HTML/JS)
-│   ├── index.html       # Interface principale
-│   ├── selection.html   # Interface de sélection
-│   └── filename-dialog.html  # Dialogue de sauvegarde
-└── package.json         # Configuration npm
-```
-
-## Notes importantes
-
-- **Windows 10/11** : L'application est optimisée pour Windows 10 et 11
-
-## Licence
+## License
 
 ISC
 
-## Contribution
+## Contributing
 
-Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
+Contributions are welcome! Feel free to open an issue or submit a pull request.

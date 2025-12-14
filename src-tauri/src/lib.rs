@@ -609,7 +609,7 @@ fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
     WebviewWindowBuilder::new(app, "filename-dialog", WebviewUrl::App("filename-dialog.html".into()))
         .title("Smart PrtScr - Save")
         .icon(icon).map_err(|e| e.to_string())?
-        .inner_size(480.0, 340.0)
+        .inner_size(480.0, 540.0)
         .resizable(true)
         .decorations(false)
         .always_on_top(true)

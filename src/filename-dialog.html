@@ -154,26 +154,20 @@
       color: white;
     }
 
-    .btn-save:hover {
+    .btn-save:hover:not(:disabled) {
       background: #333;
+    }
+
+    .btn-save:disabled {
+      background: #ccc;
+      color: #888;
+      cursor: not-allowed;
     }
 
     .hint {
       color: #888;
       font-size: 11px;
       margin-top: 6px;
-    }
-
-    .preview {
-      margin-bottom: 10px;
-      text-align: center;
-    }
-
-    .preview canvas {
-      max-width: 100%;
-      max-height: 180px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
     }
 
     .section {
@@ -340,9 +334,6 @@
       <button class="close-btn" id="btnClose" title="Fermer">×</button>
     </div>
     <div class="content">
-      <div class="preview">
-      <canvas id="preview-canvas"></canvas>
-    </div>
     <h2>Nom de la capture</h2>
     <div class="input-group">
       <input type="text" id="filename" autofocus>
@@ -438,15 +429,43 @@
 
   <script type="module">
     const { invoke } = window.__TAURI__.core;
+    const { emit, emitTo, listen } = window.__TAURI__.event;
     const { getCurrentWindow, LogicalSize } = window.__TAURI__.window;
 
     const WINDOW_WIDTH = 480;
 
     const input = document.getElementById('filename');
-    const canvas = document.getElementById('preview-canvas');
-    const ctx = canvas.getContext('2d');
-    let originalImage = null;
     let defaultFilename = '';
+    let currentBounds = null; // Selection bounds received from selection window
+
+    // Listen for selection bounds changes from selection window
+    listen('selection-bounds-changed', (event) => {
+      currentBounds = event.payload;
+      console.log('Received selection-bounds-changed:', currentBounds);
+      updateSaveButtonState();
+    });
+
+    // Update save button state based on whether bounds are available
+    function updateSaveButtonState() {
+      const saveBtn = document.getElementById('btnSave');
+      if (currentBounds) {
+        saveBtn.disabled = false;
+        saveBtn.title = '';
+      } else {
+        saveBtn.disabled = true;
+        saveBtn.title = 'Dessinez une sélection d\'abord';
+      }
+    }
+
+    // Emit timestamp options to selection window for real-time preview
+    function emitOptionsChanged() {
+      const options = getCurrentOptions();
+      // Use emitTo to send directly to selection window (same pattern as selection -> filename-dialog)
+      emitTo('selection', 'timestamp-options-changed', options).catch(e => {
+        console.error('Error emitting timestamp options:', e);
+      });
+      console.log('Emitting timestamp-options-changed to selection:', options);
+    }
 
     // Ajuster la hauteur de la fenêtre au contenu avec transition
     async function adjustWindowHeight(animate = true) {
@@ -478,19 +497,6 @@
       }
     }
 
-    // Couleurs
-    const textColors = {
-      white: '#ffffff',
-      black: '#000000',
-      gray: '#808080',
-      red: '#ff0000',
-      green: '#00ff00',
-      blue: '#0000ff',
-      yellow: '#ffff00',
-      cyan: '#00ffff',
-      magenta: '#ff00ff'
-    };
-
     // Toggle section collapse with window resize
     document.getElementById('timestampHeader').addEventListener('click', async () => {
       const section = document.getElementById('sectionTimestamp');
@@ -499,7 +505,7 @@
       setTimeout(() => adjustWindowHeight(true), 320);
     });
 
-    // Mettre a jour l'etat des options
+    // Mettre a jour l'etat des options and emit changes
     function updateOptionsState() {
       const enabled = document.getElementById('timestampEnabled').checked;
       const container = document.getElementById('timestampOptionsContainer');
@@ -508,100 +514,8 @@
       } else {
         container.classList.add('options-disabled');
       }
-    }
-
-    // Mettre a jour l'apercu
-    function updatePreview() {
-      updateOptionsState();
-
-      if (!originalImage) return;
-
-      const options = getCurrentOptions();
-      const img = originalImage;
-      const fontSize = options.fontSize || 14;
-      const bannerHeight = Math.max(24, fontSize + 10);
-
-      const isOverlay = options.type === 'overlay';
-      let canvasHeight = img.height;
-      if (options.enabled && !isOverlay) {
-        canvasHeight = img.height + bannerHeight;
-      }
-
-      canvas.width = img.width;
-      canvas.height = canvasHeight;
-
-      if (options.enabled && !isOverlay && options.position === 'top') {
-        ctx.drawImage(img, 0, bannerHeight);
-      } else {
-        ctx.drawImage(img, 0, 0);
-      }
-
-      if (options.enabled) {
-        const now = new Date();
-        const timestamp = now.toLocaleString('fr-FR');
-        const textColor = textColors[options.textColor] || textColors.white;
-        const bannerColor = options.type === 'banner-light' ? '#f5f5f5' : '#333333';
-
-        let fontStyle = '';
-        if (options.italic) fontStyle += 'italic ';
-        if (options.bold) fontStyle += 'bold ';
-        fontStyle += fontSize + 'px Arial';
-
-        ctx.font = fontStyle;
-        ctx.fillStyle = textColor;
-
-        let textX;
-        if (options.textAlign === 'left') {
-          ctx.textAlign = 'left';
-          textX = 10;
-        } else if (options.textAlign === 'right') {
-          ctx.textAlign = 'right';
-          textX = img.width - 10;
-        } else {
-          ctx.textAlign = 'center';
-          textX = img.width / 2;
-        }
-
-        let bannerY, textY;
-        if (!isOverlay) {
-          if (options.position === 'top') {
-            bannerY = 0;
-            textY = bannerHeight / 2 + fontSize / 3;
-          } else {
-            bannerY = img.height;
-            textY = img.height + bannerHeight / 2 + fontSize / 3;
-          }
-          ctx.fillStyle = bannerColor;
-          ctx.fillRect(0, bannerY, img.width, bannerHeight);
-          ctx.fillStyle = textColor;
-        } else {
-          if (options.position === 'top') {
-            textY = 10 + fontSize;
-          } else {
-            textY = img.height - 10;
-          }
-        }
-
-        ctx.fillText(timestamp, textX, textY);
-
-        if (options.underline) {
-          const textWidth = ctx.measureText(timestamp).width;
-          let underlineX;
-          if (options.textAlign === 'left') {
-            underlineX = 10;
-          } else if (options.textAlign === 'right') {
-            underlineX = img.width - 10 - textWidth;
-          } else {
-            underlineX = (img.width - textWidth) / 2;
-          }
-          ctx.beginPath();
-          ctx.strokeStyle = textColor;
-          ctx.lineWidth = Math.max(1, fontSize / 10);
-          ctx.moveTo(underlineX, textY + 3);
-          ctx.lineTo(underlineX + textWidth, textY + 3);
-          ctx.stroke();
-        }
-      }
+      // Emit changes to selection window for real-time preview
+      emitOptionsChanged();
     }
 
     // Charger les options d'horodatage (camelCase du backend Rust)
@@ -660,6 +574,12 @@
     // Sauvegarder
     async function save() {
       try {
+        // Check if selection bounds are available
+        if (!currentBounds) {
+          alert('Veuillez dessiner une sélection d\'abord');
+          return;
+        }
+
         const filename = input.value.trim() || defaultFilename;
         const options = getCurrentOptions();
         const imageFormat = document.getElementById('imageFormat').value;
@@ -669,8 +589,14 @@
           options.fontSize = 14;
         }
 
+        console.log('Processing selection with bounds:', currentBounds);
+
+        // First process the selection to crop the image
+        await invoke('process_selection', { bounds: currentBounds });
+
         console.log('Saving with data:', { filename, timestampOptions: options, imageFormat });
 
+        // Then save with timestamp options
         const savedPath = await invoke('save_screenshot', {
           data: {
             filename: filename,
@@ -680,6 +606,7 @@
         });
 
         console.log('Saved to:', savedPath);
+        await invoke('close_window', { label: 'selection' });
         await invoke('close_window', { label: 'filename-dialog' });
       } catch (error) {
         console.error('Error saving:', error);
@@ -691,6 +618,7 @@
     async function cancel() {
       try {
         await invoke('cancel_screenshot');
+        await invoke('close_window', { label: 'selection' });
         await invoke('close_window', { label: 'filename-dialog' });
       } catch (error) {
         console.error('Error canceling:', error);
@@ -704,9 +632,12 @@
         defaultFilename = await invoke('get_default_filename');
         input.placeholder = defaultFilename;
 
-        // Charger les options d'horodatage d'abord
+        // Charger les options d'horodatage
         const timestampOpts = await invoke('get_timestamp_options');
         loadTimestampOptions(timestampOpts);
+
+        // Emit initial options to selection window after a delay to ensure listener is ready
+        setTimeout(() => emitOptionsChanged(), 500);
 
         // Charger le format d'image
         const format = await invoke('get_image_format');
@@ -715,16 +646,11 @@
         // Charger la destination
         await loadDestination();
 
-        // Charger l'apercu en dernier (et appeler updatePreview quand l'image est chargée)
-        const previewBase64 = await invoke('get_preview_image');
-        const img = new Image();
-        img.onload = () => {
-          originalImage = img;
-          updatePreview();
-          // Ajuster la hauteur après le chargement complet (sans animation)
-          setTimeout(() => adjustWindowHeight(false), 100);
-        };
-        img.src = `data:image/png;base64,${previewBase64}`;
+        // Disable save button until selection bounds are received
+        updateSaveButtonState();
+
+        // Ajuster la hauteur de la fenêtre (sans animation)
+        setTimeout(() => adjustWindowHeight(false), 100);
       } catch (error) {
         console.error('Error initializing:', error);
       }
@@ -746,13 +672,13 @@
     document.getElementById('btnChangeFolder').addEventListener('click', changeDestination);
     document.getElementById('destinationPath').addEventListener('click', changeDestination);
 
-    // Options preview update
+    // Options change listeners - emit to selection window for real-time preview
     ['timestampEnabled', 'timestampType', 'timestampPosition', 'timestampFontSize',
      'timestampTextColor', 'timestampTextAlign', 'timestampBold', 'timestampItalic',
      'timestampUnderline'].forEach(id => {
-      document.getElementById(id).addEventListener('change', updatePreview);
+      document.getElementById(id).addEventListener('change', updateOptionsState);
       if (id === 'timestampFontSize') {
-        document.getElementById(id).addEventListener('input', updatePreview);
+        document.getElementById(id).addEventListener('input', updateOptionsState);
       }
     });
 

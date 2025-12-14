@@ -100,11 +100,24 @@
     canvas.height = window.screen.height;
 
     // ============================================
-    // T001: Constants
+    // Constants
     // ============================================
     const HANDLE_SIZE = 10;
     const HANDLE_HIT_AREA = 20;
     const MIN_SELECTION_SIZE = 10;
+
+    // Text colors for timestamp preview
+    const textColors = {
+      white: '#ffffff',
+      black: '#000000',
+      gray: '#808080',
+      red: '#ff0000',
+      green: '#00ff00',
+      blue: '#0000ff',
+      yellow: '#ffff00',
+      cyan: '#00ffff',
+      magenta: '#ff00ff'
+    };
 
     // ============================================
     // T002: State machine
@@ -122,7 +135,8 @@
       selection: null,
       activeHandle: null,
       dragStart: null,
-      drawStart: null
+      drawStart: null,
+      timestampOptions: null
     };
 
     // ============================================
@@ -209,7 +223,131 @@
     }
 
     // ============================================
-    // T009: drawSelectionWithHandles
+    // loadTimestampOptions: Fetch timestamp settings from backend
+    // ============================================
+    async function loadTimestampOptions() {
+      try {
+        const options = await invoke('get_timestamp_options');
+        appState.timestampOptions = options;
+        log('Timestamp options loaded: ' + JSON.stringify(options));
+      } catch (error) {
+        log('Error loading timestamp options: ' + error);
+        appState.timestampOptions = null;
+      }
+    }
+
+    // ============================================
+    // drawTimestampPreview: Render timestamp on selection
+    // ============================================
+    function drawTimestampPreview(sel, options) {
+      if (!sel || !options || !options.enabled) return;
+
+      const { x, y, width, height } = sel;
+
+      // Generate timestamp in French format
+      const now = new Date();
+      const timestamp = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR');
+
+      // Build font style
+      let fontStyle = '';
+      if (options.bold) fontStyle += 'bold ';
+      if (options.italic) fontStyle += 'italic ';
+      const fontSize = options.fontSize || 14;
+      const font = `${fontStyle}${fontSize}px Arial`;
+
+      ctx.font = font;
+      const textMetrics = ctx.measureText(timestamp);
+      const textWidth = textMetrics.width;
+
+      const isOverlay = options.type === 'overlay';
+      const isBannerLight = options.type === 'banner-light';
+      const isBannerDark = options.type === 'banner-dark';
+      const isTop = options.position === 'top';
+      const bannerHeight = fontSize + 20;
+
+      // Calculate text X position based on alignment
+      let textX;
+      const padding = 10;
+      switch (options.textAlign) {
+        case 'left':
+          textX = x + padding;
+          break;
+        case 'right':
+          textX = x + width - textWidth - padding;
+          break;
+        case 'center':
+        default:
+          textX = x + (width - textWidth) / 2;
+          break;
+      }
+
+      // Get text color
+      const textColor = textColors[options.textColor] || '#ffffff';
+
+      if (isOverlay) {
+        // Overlay mode: draw text directly on image area
+        const textY = isTop ? y + fontSize + padding : y + height - padding;
+
+        ctx.fillStyle = textColor;
+        ctx.fillText(timestamp, textX, textY);
+
+        // Draw underline if enabled
+        if (options.underline) {
+          ctx.strokeStyle = textColor;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(textX, textY + 3);
+          ctx.lineTo(textX + textWidth, textY + 3);
+          ctx.stroke();
+        }
+      } else {
+        // Banner mode: draw banner outside selection
+        const bannerColor = isBannerLight ? '#f5f5f5' : '#333333';
+        const bannerY = isTop ? y - bannerHeight : y + height;
+
+        // Draw banner background
+        ctx.fillStyle = bannerColor;
+        ctx.fillRect(x, bannerY, width, bannerHeight);
+
+        // Draw banner border
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, bannerY, width, bannerHeight);
+
+        // Calculate text position in banner
+        const textY = bannerY + (bannerHeight + fontSize) / 2 - 2;
+
+        // Adjust textX for banner
+        switch (options.textAlign) {
+          case 'left':
+            textX = x + padding;
+            break;
+          case 'right':
+            textX = x + width - textWidth - padding;
+            break;
+          case 'center':
+          default:
+            textX = x + (width - textWidth) / 2;
+            break;
+        }
+
+        ctx.fillStyle = textColor;
+        ctx.fillText(timestamp, textX, textY);
+
+        // Draw underline if enabled
+        if (options.underline) {
+          ctx.strokeStyle = textColor;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(textX, textY + 3);
+          ctx.lineTo(textX + textWidth, textY + 3);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ============================================
+    // drawSelectionWithHandles
     // ============================================
     function drawSelectionWithHandles(sel) {
       if (!sel) return;
@@ -230,6 +368,9 @@
       ctx.font = '14px Arial';
       ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + 5, y + 20);
 
+      // Draw timestamp preview
+      drawTimestampPreview(sel, appState.timestampOptions);
+
       // Draw handles
       const handles = getHandlePositions(sel);
       const halfSize = HANDLE_SIZE / 2;
@@ -245,7 +386,7 @@
     }
 
     // ============================================
-    // T008: Modified drawSelection for state machine
+    // drawSelection: Main drawing function for state machine
     // ============================================
     function drawSelection() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -266,6 +407,9 @@
         ctx.fillStyle = 'white';
         ctx.font = '14px Arial';
         ctx.fillText(`${Math.round(sel.width)} x ${Math.round(sel.height)}`, sel.x + 5, sel.y + 20);
+
+        // Draw timestamp preview during drawing
+        drawTimestampPreview(sel, appState.timestampOptions);
       } else if (appState.selection &&
                  (appState.current === SelectionState.MODIFIABLE ||
                   appState.current === SelectionState.RESIZING ||
@@ -401,6 +545,9 @@
     async function loadScreenshot() {
       log('loadScreenshot called');
       try {
+        // Load timestamp options first
+        await loadTimestampOptions();
+
         log('invoke capture_screen START');
         console.log('[PERF]', getTime(), 'invoke capture_screen START');
         const filePath = await invoke('capture_screen');
@@ -437,7 +584,7 @@
       instruction.classList.remove('show');
     }, 2000);
 
-    // Envoyer la selection et fermer
+    // Envoyer la selection (fenetre reste ouverte pour apercu en temps reel)
     async function completeSelection(x, y, width, height) {
       try {
         await invoke('process_selection', {
@@ -448,7 +595,7 @@
             height: Math.round(height)
           }
         });
-        await invoke('close_window', { label: 'selection' });
+        // Window stays open - filename-dialog will close it when Save is clicked
       } catch (error) {
         console.error('Error processing selection:', error);
       }
@@ -458,6 +605,8 @@
     async function cancelSelection() {
       try {
         await invoke('cancel_screenshot');
+        // Close dialog if it exists (ignore error if not open)
+        await invoke('close_window', { label: 'filename-dialog' }).catch(() => {});
         await invoke('close_window', { label: 'selection' });
       } catch (error) {
         console.error('Error canceling:', error);
@@ -540,46 +689,99 @@
           appState.current = SelectionState.MODIFIABLE;
           appState.drawStart = null;
           drawSelection();
+          emitSelectionBounds(); // Notify dialog of new selection
         } else {
-          completeSelection(0, 0, canvas.width, canvas.height);
+          // Too small selection - create fullscreen selection
+          appState.selection = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+          appState.current = SelectionState.MODIFIABLE;
+          appState.drawStart = null;
+          drawSelection();
+          emitSelectionBounds();
         }
 
       } else if (appState.current === SelectionState.RESIZING) {
         appState.current = SelectionState.MODIFIABLE;
         appState.activeHandle = null;
+        emitSelectionBounds(); // Notify dialog of resized selection
 
       } else if (appState.current === SelectionState.MOVING) {
         appState.current = SelectionState.MODIFIABLE;
         appState.dragStart = null;
+        emitSelectionBounds(); // Notify dialog of moved selection
       }
+
+      // Bring dialog back to front after any mouse interaction
+      invoke('focus_dialog').catch(() => {});
     });
 
     // ============================================
-    // T024: Double-click to confirm
+    // T024: Double-click - no longer confirms (selection stays modifiable)
     // ============================================
-    canvas.addEventListener('dblclick', (e) => {
-      if (appState.current === SelectionState.MODIFIABLE && appState.selection) {
-        if (isInsideSelection(e.clientX, e.clientY, appState.selection)) {
-          const sel = appState.selection;
-          completeSelection(sel.x, sel.y, sel.width, sel.height);
-        }
-      }
-    });
+    // Double-click disabled - user must click Save in dialog to confirm
 
     // ============================================
-    // T023: keydown handler
+    // T023: keydown handler - only Escape to cancel
     // ============================================
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         cancelSelection();
-      } else if (e.key === 'Enter') {
-        if (appState.selection) {
-          const sel = appState.selection;
-          completeSelection(sel.x, sel.y, sel.width, sel.height);
-        } else {
-          completeSelection(0, 0, canvas.width, canvas.height);
-        }
       }
+      // Enter no longer confirms - user must click Save in dialog
+    });
+
+    // ============================================
+    // createFullscreenSelection: For fullscreen capture mode
+    // ============================================
+    function createFullscreenSelection() {
+      log('Creating fullscreen selection');
+      appState.selection = {
+        x: 0,
+        y: 0,
+        width: canvas.width,
+        height: canvas.height
+      };
+      appState.current = SelectionState.MODIFIABLE;
+      drawSelection();
+      // Emit bounds after a short delay to ensure emit function is available
+      setTimeout(() => emitSelectionBounds(), 100);
+    }
+
+    // ============================================
+    // Event listener for fullscreen capture trigger
+    // ============================================
+    const { listen, emitTo } = window.__TAURI__.event;
+
+    // Emit selection bounds to filename-dialog for save
+    function emitSelectionBounds() {
+      if (appState.selection) {
+        const bounds = {
+          x: Math.round(appState.selection.x),
+          y: Math.round(appState.selection.y),
+          width: Math.round(appState.selection.width),
+          height: Math.round(appState.selection.height)
+        };
+        // Use emitTo to target the filename-dialog window specifically
+        emitTo('filename-dialog', 'selection-bounds-changed', bounds);
+        log('Emitted selection-bounds-changed: ' + JSON.stringify(bounds));
+      }
+    }
+    listen('capture-full-screen', () => {
+      log('capture-full-screen event received');
+      createFullscreenSelection();
+    });
+
+    // ============================================
+    // Event listener for timestamp options changes from filename-dialog
+    // ============================================
+    log('Registering timestamp-options-changed listener...');
+    listen('timestamp-options-changed', (event) => {
+      log('timestamp-options-changed event received: ' + JSON.stringify(event.payload));
+      appState.timestampOptions = event.payload;
+      drawSelection();
+    }).then(() => {
+      log('timestamp-options-changed listener registered successfully');
+    }).catch((err) => {
+      log('ERROR registering timestamp-options-changed listener: ' + err);
     });
 
     // Charger la capture au demarrage

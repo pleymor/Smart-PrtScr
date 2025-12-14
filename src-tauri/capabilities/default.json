@@ -4,7 +4,8 @@
   "description": "enables the default permissions",
   "windows": [
     "main",
-    "filename-dialog"
+    "filename-dialog",
+    "selection"
   ],
   "permissions": [
     "core:default",

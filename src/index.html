@@ -45,7 +45,7 @@
       -webkit-app-region: no-drag;
     }
 
-    button, input, select, label, .path-section, .section-header {
+    button, input, select, label, .path-section, .section-header, .destination-row {
       -webkit-app-region: no-drag;
     }
 
@@ -128,15 +128,48 @@
       border: 1px solid #ddd;
     }
 
-    .path-display {
-      background: white;
+    .destination-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       padding: 6px 8px;
-      border-radius: 3px;
+      background: #f9f9f9;
       border: 1px solid #ddd;
-      margin: 6px 0;
-      word-break: break-all;
-      font-family: monospace;
+      border-radius: 4px;
       font-size: 11px;
+    }
+
+    .destination-label {
+      color: #666;
+      white-space: nowrap;
+    }
+
+    .destination-path {
+      flex: 1;
+      color: #333;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .destination-path:hover {
+      color: #555;
+    }
+
+    .btn-folder {
+      padding: 3px 6px;
+      border: 1px solid #ddd;
+      background: white;
+      color: #555;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-right: 0;
+    }
+
+    .btn-folder:hover {
+      background: #f0f0f0;
     }
 
     button {
@@ -295,11 +328,11 @@
         <span class="collapse-icon">▼</span>
       </div>
       <div class="section-content">
-        <div class="path-section">
-          <label style="font-size: 12px;"><strong>Dossier de destination :</strong></label>
-          <div class="path-display" id="currentPath">Chargement...</div>
-          <button onclick="changePath()">Changer</button>
-          <button onclick="resetPath()">Réinitialiser</button>
+        <div class="destination-row">
+          <span class="destination-label">Dossier :</span>
+          <span class="destination-path" id="currentPath" title="Cliquez pour changer" onclick="changePath()">Chargement...</span>
+          <button class="btn-folder" onclick="changePath()" title="Changer le dossier">&#128193;</button>
+          <button class="btn-folder" onclick="resetPath()" title="Réinitialiser">&#8635;</button>
         </div>
         <div class="path-section" style="margin-top: 8px;">
           <label style="font-size: 12px;">

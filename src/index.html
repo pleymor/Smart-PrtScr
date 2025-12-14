@@ -403,12 +403,31 @@
 
     const WINDOW_WIDTH = 450;
 
-    // Ajuster la hauteur de la fenêtre au contenu
-    async function adjustWindowHeight() {
+    // Ajuster la hauteur de la fenêtre au contenu avec transition
+    async function adjustWindowHeight(animate = true) {
       try {
         const win = getCurrentWindow();
-        const height = document.body.scrollHeight;
-        await win.setSize(new LogicalSize(WINDOW_WIDTH, height));
+        const targetHeight = document.body.scrollHeight;
+
+        if (!animate) {
+          await win.setSize(new LogicalSize(WINDOW_WIDTH, targetHeight));
+          return;
+        }
+
+        const currentSize = await win.innerSize();
+        const startHeight = currentSize.height;
+        const diff = targetHeight - startHeight;
+        const duration = 200;
+        const steps = 15;
+        const stepTime = duration / steps;
+
+        for (let i = 1; i <= steps; i++) {
+          const progress = i / steps;
+          const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+          const newHeight = Math.round(startHeight + diff * eased);
+          await win.setSize(new LogicalSize(WINDOW_WIDTH, newHeight));
+          await new Promise(r => setTimeout(r, stepTime));
+        }
       } catch (error) {
         console.error('Error resizing window:', error);
       }
@@ -421,7 +440,7 @@
 
       // Resize window when timestamp section is toggled
       if (sectionId === 'sectionTimestamp') {
-        setTimeout(adjustWindowHeight, 350);
+        setTimeout(() => adjustWindowHeight(true), 320);
       }
     }
 
@@ -649,8 +668,8 @@
         document.getElementById('timestampUnderline').checked = opts.underline || false;
         updateOptionsContainerState(opts.enabled);
 
-        // Ajuster la hauteur après le chargement
-        setTimeout(adjustWindowHeight, 100);
+        // Ajuster la hauteur après le chargement (sans animation)
+        setTimeout(() => adjustWindowHeight(false), 100);
       } catch (error) {
         console.error('Error loading settings:', error);
       }

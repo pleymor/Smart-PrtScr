@@ -402,12 +402,31 @@
     let originalImage = null;
     let defaultFilename = '';
 
-    // Ajuster la hauteur de la fenêtre au contenu
-    async function adjustWindowHeight() {
+    // Ajuster la hauteur de la fenêtre au contenu avec transition
+    async function adjustWindowHeight(animate = true) {
       try {
         const win = getCurrentWindow();
-        const height = document.body.scrollHeight;
-        await win.setSize(new LogicalSize(WINDOW_WIDTH, height));
+        const targetHeight = document.body.scrollHeight;
+
+        if (!animate) {
+          await win.setSize(new LogicalSize(WINDOW_WIDTH, targetHeight));
+          return;
+        }
+
+        const currentSize = await win.innerSize();
+        const startHeight = currentSize.height;
+        const diff = targetHeight - startHeight;
+        const duration = 200;
+        const steps = 15;
+        const stepTime = duration / steps;
+
+        for (let i = 1; i <= steps; i++) {
+          const progress = i / steps;
+          const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+          const newHeight = Math.round(startHeight + diff * eased);
+          await win.setSize(new LogicalSize(WINDOW_WIDTH, newHeight));
+          await new Promise(r => setTimeout(r, stepTime));
+        }
       } catch (error) {
         console.error('Error resizing window:', error);
       }
@@ -430,8 +449,8 @@
     document.getElementById('timestampHeader').addEventListener('click', async () => {
       const section = document.getElementById('sectionTimestamp');
       section.classList.toggle('collapsed');
-      // Attendre la fin de l'animation CSS
-      setTimeout(adjustWindowHeight, 350);
+      // Attendre la fin de l'animation CSS puis animer le resize
+      setTimeout(() => adjustWindowHeight(true), 320);
     });
 
     // Mettre a jour l'etat des options
@@ -656,8 +675,8 @@
         img.onload = () => {
           originalImage = img;
           updatePreview();
-          // Ajuster la hauteur après le chargement complet
-          setTimeout(adjustWindowHeight, 100);
+          // Ajuster la hauteur après le chargement complet (sans animation)
+          setTimeout(() => adjustWindowHeight(false), 100);
         };
         img.src = `data:image/png;base64,${previewBase64}`;
       } catch (error) {

@@ -401,25 +401,27 @@
     const { invoke } = window.__TAURI__.core;
     const { getCurrentWindow, LogicalSize } = window.__TAURI__.window;
 
-    const BASE_HEIGHT = 340;
-    const TIMESTAMP_SECTION_HEIGHT = 200;
     const WINDOW_WIDTH = 450;
+
+    // Ajuster la hauteur de la fenêtre au contenu
+    async function adjustWindowHeight() {
+      try {
+        const win = getCurrentWindow();
+        const height = document.body.scrollHeight;
+        await win.setSize(new LogicalSize(WINDOW_WIDTH, height));
+      } catch (error) {
+        console.error('Error resizing window:', error);
+      }
+    }
 
     // Toggle section collapse with window resize
     window.toggleSection = async function(sectionId) {
       const section = document.getElementById(sectionId);
-      const isCollapsing = !section.classList.contains('collapsed');
       section.classList.toggle('collapsed');
 
       // Resize window when timestamp section is toggled
       if (sectionId === 'sectionTimestamp') {
-        try {
-          const win = getCurrentWindow();
-          const newHeight = isCollapsing ? BASE_HEIGHT : BASE_HEIGHT + TIMESTAMP_SECTION_HEIGHT;
-          await win.setSize(new LogicalSize(WINDOW_WIDTH, newHeight));
-        } catch (error) {
-          console.error('Error resizing window:', error);
-        }
+        setTimeout(adjustWindowHeight, 350);
       }
     }
 
@@ -646,6 +648,9 @@
         document.getElementById('timestampItalic').checked = opts.italic || false;
         document.getElementById('timestampUnderline').checked = opts.underline || false;
         updateOptionsContainerState(opts.enabled);
+
+        // Ajuster la hauteur après le chargement
+        setTimeout(adjustWindowHeight, 100);
       } catch (error) {
         console.error('Error loading settings:', error);
       }

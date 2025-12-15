@@ -242,18 +242,28 @@ fn get_banner_color(display_type: &str) -> Rgba<u8> {
     }
 }
 
-// Add timestamp to image
+// Result of timestamp processing: encoded bytes for file + RGBA for clipboard
+struct ProcessedImage {
+    encoded_bytes: Vec<u8>,
+    rgba_pixels: Vec<u8>,
+    width: u32,
+    height: u32,
+}
+
+// Add timestamp to image - returns both encoded format and raw RGBA
 fn add_timestamp_to_image(
     image_data: &[u8],
     options: &TimestampOptions,
     format: &str,
-) -> Result<Vec<u8>, String> {
+) -> Result<ProcessedImage, String> {
     let img = image::load_from_memory(image_data).map_err(|e| e.to_string())?;
     let mut rgba_img = img.to_rgba8();
     let (width, height) = rgba_img.dimensions();
 
     if !options.enabled {
-        return encode_image(&DynamicImage::ImageRgba8(rgba_img), format);
+        let rgba_pixels = rgba_img.as_raw().clone();
+        let encoded_bytes = encode_image(&DynamicImage::ImageRgba8(rgba_img), format)?;
+        return Ok(ProcessedImage { encoded_bytes, rgba_pixels, width, height });
     }
 
     let timestamp = Local::now().format("%d/%m/%Y %H:%M:%S").to_string();
@@ -283,7 +293,9 @@ fn add_timestamp_to_image(
         };
 
         draw_text_mut(&mut rgba_img, text_color, text_x, text_y, scale, &font, &timestamp);
-        encode_image(&DynamicImage::ImageRgba8(rgba_img), format)
+        let rgba_pixels = rgba_img.as_raw().clone();
+        let encoded_bytes = encode_image(&DynamicImage::ImageRgba8(rgba_img), format)?;
+        Ok(ProcessedImage { encoded_bytes, rgba_pixels, width, height })
     } else {
         // Banner mode: add banner above or below image
         let new_height = height + banner_height;
@@ -321,7 +333,9 @@ fn add_timestamp_to_image(
         let text_y = banner_y as i32 + (banner_height as i32 - options.font_size as i32) / 2;
 
         draw_text_mut(&mut new_img, text_color, text_x, text_y, scale, &font, &timestamp);
-        encode_image(&DynamicImage::ImageRgba8(new_img), format)
+        let rgba_pixels = new_img.as_raw().clone();
+        let encoded_bytes = encode_image(&DynamicImage::ImageRgba8(new_img), format)?;
+        Ok(ProcessedImage { encoded_bytes, rgba_pixels, width: width, height: new_height })
     }
 }
 
@@ -346,15 +360,8 @@ fn encode_image(img: &DynamicImage, format: &str) -> Result<Vec<u8>, String> {
     Ok(buffer.into_inner())
 }
 
-// Copy image to system clipboard
-fn copy_image_to_clipboard(image_bytes: &[u8]) -> Result<(), String> {
-    // Decode image bytes to get RGBA pixel data
-    let img = image::load_from_memory(image_bytes).map_err(|e| e.to_string())?;
-    let rgba_img = img.to_rgba8();
-    let (width, height) = rgba_img.dimensions();
-    let pixels = rgba_img.into_raw();
-
-    // Create clipboard and set image
+// Copy image to system clipboard from raw RGBA data
+fn copy_rgba_to_clipboard(pixels: Vec<u8>, width: u32, height: u32) -> Result<(), String> {
     let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
     let img_data = ImageData {
         width: width as usize,
@@ -362,7 +369,6 @@ fn copy_image_to_clipboard(image_bytes: &[u8]) -> Result<(), String> {
         bytes: std::borrow::Cow::Owned(pixels),
     };
     clipboard.set_image(img_data).map_err(|e| e.to_string())?;
-
     Ok(())
 }
 
@@ -683,14 +689,14 @@ async fn save_screenshot(
     let full_path = save_dir.join(&filename);
 
     // Apply timestamp
-    let final_image = add_timestamp_to_image(
+    let processed = add_timestamp_to_image(
         &screenshot.image_data,
         &data.timestamp_options,
         &data.image_format,
     )?;
 
     // Save file
-    fs::write(&full_path, &final_image).map_err(|e| e.to_string())?;
+    fs::write(&full_path, &processed.encoded_bytes).map_err(|e| e.to_string())?;
 
     // Copy to clipboard if enabled (after successful file save per FR-006)
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
@@ -699,7 +705,8 @@ async fn save_screenshot(
         .unwrap_or(true); // Default: enabled (FR-003)
 
     if clipboard_enabled {
-        if let Err(e) = copy_image_to_clipboard(&final_image) {
+        // Use raw RGBA directly - no re-decoding needed
+        if let Err(e) = copy_rgba_to_clipboard(processed.rgba_pixels, processed.width, processed.height) {
             // FR-005: File save succeeded, emit error event but don't fail
             println!("[LOG] {} Clipboard copy failed: {}", Local::now().format("%H:%M:%S%.3f"), e);
             let _ = app.emit("clipboard-copy-failed", ClipboardErrorPayload {
@@ -743,10 +750,10 @@ async fn copy_to_clipboard_only(
     };
 
     // Apply timestamp if enabled (FR-009)
-    let final_image = add_timestamp_to_image(&image_data, &timestamp_options, &image_format)?;
+    let processed = add_timestamp_to_image(&image_data, &timestamp_options, &image_format)?;
 
-    // Copy to clipboard
-    copy_image_to_clipboard(&final_image)?;
+    // Copy to clipboard - use raw RGBA directly
+    copy_rgba_to_clipboard(processed.rgba_pixels, processed.width, processed.height)?;
 
     // Success: clear pending screenshot
     {

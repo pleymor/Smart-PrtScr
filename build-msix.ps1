@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 
 # Configuration
 $AppName = "smart-prtscr"
-$Version = "2.0.0.0"
+$Version = "2.0.1.0"
 $OutputDir = ".\msix-output"
 $PackageDir = "$OutputDir\package"
 

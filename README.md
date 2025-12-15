@@ -44,6 +44,45 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
+### Option 4: Build MSIX for Microsoft Store
+
+#### Prerequisites
+
+- [Windows SDK](https://developer.microsoft.com/windows/downloads/windows-sdk/) (provides `makeappx.exe`)
+- Store icons in `src-tauri/icons/`:
+  - `StoreLogo.png` (50x50)
+  - `Square44x44Logo.png` (44x44)
+  - `Square71x71Logo.png` (71x71)
+  - `Square150x150Logo.png` (150x150)
+  - `Square310x310Logo.png` (310x310)
+
+#### Build Steps
+
+```powershell
+# Build and create MSIX package
+.\build-msix.ps1
+
+# Skip Tauri build if already built
+.\build-msix.ps1 -SkipBuild
+```
+
+The MSIX package will be created in `msix-output/`.
+
+#### Submission
+
+1. Upload the unsigned MSIX to [Partner Center](https://partner.microsoft.com/dashboard)
+2. Microsoft will sign it with your Store certificate
+
+#### Local Testing (Optional)
+
+```powershell
+# Create a self-signed certificate
+New-SelfSignedCertificate -Type Custom -Subject "CN=TestCert" -KeyUsage DigitalSignature -FriendlyName "Test Cert" -CertStoreLocation "Cert:\CurrentUser\My"
+
+# Export to PFX and sign
+signtool sign /fd SHA256 /a /f cert.pfx /p password .\msix-output\SmartPrtScr_*.msix
+```
+
 ## Usage
 
 ### Keyboard Shortcuts

@@ -18,6 +18,7 @@ use tauri::{
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
+use arboard::{Clipboard, ImageData};
 
 
 #[cfg(target_os = "windows")]
@@ -182,6 +183,12 @@ pub struct SaveData {
     pub image_format: String,
 }
 
+// Event payload for clipboard copy failure notification
+#[derive(Clone, Serialize)]
+pub struct ClipboardErrorPayload {
+    pub message: String,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct AllSettings {
     #[serde(rename = "savePath")]
@@ -194,6 +201,8 @@ pub struct AllSettings {
     pub windows_prtscr_disabled: bool,
     #[serde(rename = "timestampOptions")]
     pub timestamp_options: TimestampOptions,
+    #[serde(rename = "clipboardCopyEnabled")]
+    pub clipboard_copy_enabled: bool,
 }
 
 // Get default screenshot path
@@ -337,6 +346,26 @@ fn encode_image(img: &DynamicImage, format: &str) -> Result<Vec<u8>, String> {
     Ok(buffer.into_inner())
 }
 
+// Copy image to system clipboard
+fn copy_image_to_clipboard(image_bytes: &[u8]) -> Result<(), String> {
+    // Decode image bytes to get RGBA pixel data
+    let img = image::load_from_memory(image_bytes).map_err(|e| e.to_string())?;
+    let rgba_img = img.to_rgba8();
+    let (width, height) = rgba_img.dimensions();
+    let pixels = rgba_img.into_raw();
+
+    // Create clipboard and set image
+    let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+    let img_data = ImageData {
+        width: width as usize,
+        height: height as usize,
+        bytes: std::borrow::Cow::Owned(pixels),
+    };
+    clipboard.set_image(img_data).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 // Tauri commands
 #[tauri::command]
 async fn get_all_settings(app: AppHandle) -> Result<AllSettings, String> {
@@ -375,12 +404,18 @@ async fn get_all_settings(app: AppHandle) -> Result<AllSettings, String> {
         .and_then(|o| serde_json::from_value(o.clone()).ok())
         .unwrap_or_default();
 
+    // Clipboard copy enabled (default: true)
+    let clipboard_copy_enabled = store.get("clipboardCopyEnabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
     Ok(AllSettings {
         save_path,
         auto_start,
         image_format,
         windows_prtscr_disabled,
         timestamp_options,
+        clipboard_copy_enabled,
     })
 }
 
@@ -487,6 +522,22 @@ async fn set_image_format(app: AppHandle, format: String) -> Result<String, Stri
     store.set("imageFormat", serde_json::json!(format));
     store.save().map_err(|e| e.to_string())?;
     Ok(format)
+}
+
+#[tauri::command]
+async fn get_clipboard_copy_enabled(app: AppHandle) -> Result<bool, String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    Ok(store.get("clipboardCopyEnabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)) // Default: enabled (FR-003)
+}
+
+#[tauri::command]
+async fn set_clipboard_copy_enabled(app: AppHandle, enabled: bool) -> Result<bool, String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("clipboardCopyEnabled", serde_json::json!(enabled));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(enabled)
 }
 
 #[tauri::command]
@@ -641,6 +692,24 @@ async fn save_screenshot(
     // Save file
     fs::write(&full_path, &final_image).map_err(|e| e.to_string())?;
 
+    // Copy to clipboard if enabled (after successful file save per FR-006)
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    let clipboard_enabled = store.get("clipboardCopyEnabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true); // Default: enabled (FR-003)
+
+    if clipboard_enabled {
+        if let Err(e) = copy_image_to_clipboard(&final_image) {
+            // FR-005: File save succeeded, emit error event but don't fail
+            println!("[LOG] {} Clipboard copy failed: {}", Local::now().format("%H:%M:%S%.3f"), e);
+            let _ = app.emit("clipboard-copy-failed", ClipboardErrorPayload {
+                message: "Screenshot saved but clipboard copy failed".to_string(),
+            });
+        } else {
+            println!("[LOG] {} Screenshot copied to clipboard", Local::now().format("%H:%M:%S%.3f"));
+        }
+    }
+
     // Save settings
     set_timestamp_options(app.clone(), data.timestamp_options).await?;
     set_image_format(app.clone(), data.image_format).await?;
@@ -654,6 +723,43 @@ async fn save_screenshot(
     }
 
     Ok(full_path.to_string_lossy().to_string())
+}
+
+// Copy to clipboard only (without saving to disk)
+#[tauri::command]
+async fn copy_to_clipboard_only(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    timestamp_options: TimestampOptions,
+    image_format: String,
+) -> Result<(), String> {
+    println!("[LOG] {} copy_to_clipboard_only called", Local::now().format("%H:%M:%S%.3f"));
+
+    // Get pending screenshot (don't take ownership yet in case of failure)
+    let image_data = {
+        let pending = state.pending_screenshot.lock().unwrap();
+        let screenshot = pending.as_ref().ok_or("No pending screenshot")?;
+        screenshot.image_data.clone()
+    };
+
+    // Apply timestamp if enabled (FR-009)
+    let final_image = add_timestamp_to_image(&image_data, &timestamp_options, &image_format)?;
+
+    // Copy to clipboard
+    copy_image_to_clipboard(&final_image)?;
+
+    // Success: clear pending screenshot
+    {
+        let mut pending = state.pending_screenshot.lock().unwrap();
+        *pending = None;
+    }
+
+    // Save timestamp options for next time
+    set_timestamp_options(app.clone(), timestamp_options).await?;
+    set_image_format(app, image_format).await?;
+
+    println!("[LOG] {} Screenshot copied to clipboard (no file saved)", Local::now().format("%H:%M:%S%.3f"));
+    Ok(())
 }
 
 #[tauri::command]
@@ -909,6 +1015,8 @@ pub fn run() {
             reset_timestamp_options,
             get_image_format,
             set_image_format,
+            get_clipboard_copy_enabled,
+            set_clipboard_copy_enabled,
             get_auto_start,
             set_auto_start,
             get_windows_prtscr_disabled,
@@ -916,6 +1024,7 @@ pub fn run() {
             capture_screen,
             process_selection,
             save_screenshot,
+            copy_to_clipboard_only,
             get_default_filename,
             get_preview_image,
             cancel_screenshot,

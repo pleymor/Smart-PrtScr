@@ -1105,7 +1105,7 @@ pub fn run() {
                         "quit" => {
                             #[cfg(target_os = "windows")]
                             keyboard_hook::stop_hook();
-                            app.exit(0);
+                            std::process::exit(0);
                         }
                         _ => {}
                     }

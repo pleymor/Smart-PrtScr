@@ -36,7 +36,7 @@ Write-Host "`n=== Checking authentication ===" -ForegroundColor Green
 $configCheck = msstore apps list 2>&1
 if ($configCheck -match "not configured" -or $configCheck -match "authenticate" -or $LASTEXITCODE -ne 0) {
     Write-Host "MSStoreCLI not configured. Running setup..." -ForegroundColor Yellow
-    msstore configure
+    msstore reconfigure
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Configuration failed"
         exit 1

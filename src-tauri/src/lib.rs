@@ -33,16 +33,18 @@ mod keyboard_hook {
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DefWindowProcW, GetMessageW, RegisterClassW,
-        TranslateMessage, DispatchMessageW, DestroyWindow,
-        WNDCLASSW, MSG, WM_HOTKEY, WINDOW_EX_STYLE, WINDOW_STYLE,
+        TranslateMessage, DispatchMessageW, DestroyWindow, PostMessageW,
+        WNDCLASSW, MSG, WM_HOTKEY, WM_QUIT, WINDOW_EX_STYLE, WINDOW_STYLE,
     };
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         RegisterHotKey, UnregisterHotKey, MOD_WIN, MOD_SHIFT, MOD_NOREPEAT,
     };
     use windows::core::PCWSTR;
     use std::sync::OnceLock;
+    use std::sync::atomic::{AtomicIsize, Ordering};
 
     static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+    static HOOK_HWND: AtomicIsize = AtomicIsize::new(0);
 
     const VK_SNAPSHOT: u32 = 0x2C;
     const HOTKEY_WIN_SHIFT_PRTSCR: i32 = 1;
@@ -87,6 +89,9 @@ mod keyboard_hook {
                     None,
                 ).unwrap();
 
+                // Store HWND for cleanup
+                HOOK_HWND.store(hwnd.0 as isize, Ordering::SeqCst);
+
                 // Win+Shift+PrintScreen (works in fullscreen games)
                 if RegisterHotKey(hwnd, HOTKEY_WIN_SHIFT_PRTSCR, MOD_WIN | MOD_SHIFT | MOD_NOREPEAT, VK_SNAPSHOT).is_ok() {
                     println!("[HOTKEY] Win+Shift+PrintScreen registered");
@@ -108,6 +113,16 @@ mod keyboard_hook {
                 let _ = DestroyWindow(hwnd);
             }
         });
+    }
+
+    pub fn stop_hook() {
+        let hwnd_val = HOOK_HWND.load(Ordering::SeqCst);
+        if hwnd_val != 0 {
+            unsafe {
+                let hwnd = HWND(hwnd_val as *mut std::ffi::c_void);
+                let _ = PostMessageW(hwnd, WM_QUIT, WPARAM(0), LPARAM(0));
+            }
+        }
     }
 }
 
@@ -1088,6 +1103,8 @@ pub fn run() {
                             });
                         }
                         "quit" => {
+                            #[cfg(target_os = "windows")]
+                            keyboard_hook::stop_hook();
                             app.exit(0);
                         }
                         _ => {}

@@ -1,6 +1,6 @@
 [package]
 name = "smart-prtscr"
-version = "2.0.1"
+version = "2.0.2"
 description = "Smart PrtScr - Screenshot tool with timestamp overlay"
 authors = ["Pleymor"]
 license = "MIT"

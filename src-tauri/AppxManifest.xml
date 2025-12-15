@@ -9,7 +9,7 @@
   <Identity
     Name="Pleymor.smart-prtscr"
     Publisher="CN=B79D1225-9D8B-4940-8036-D7FDBD5EA2D3"
-    Version="2.0.1.0"
+    Version="2.0.2.0"
     ProcessorArchitecture="x64" />
 
   <Properties>

@@ -1,0 +1,71 @@
+{
+  "applicationCategory": "UtilitiesAndTools",
+  "pricing": "Free",
+  "freeTrial": "NoFreeTrial",
+  "markets": ["US", "FR", "DE", "GB", "ES", "IT", "CA", "AU", "JP"],
+  "ageRatings": {
+    "target": "NotSet"
+  },
+  "listings": {
+    "en-us": {
+      "baseListing": {
+        "title": "Smart PrtScr",
+        "description": "A lightweight screenshot tool for Windows with real-time timestamp preview.\n\nFeatures:\n- Selection rectangle with resize handles\n- Real-time timestamp preview before saving\n- Live options editing during selection\n- Multi-monitor support\n- Customizable timestamp: banner (dark/light) or overlay mode\n- Position, font size, color, alignment options\n- System tray integration\n- Auto-start with Windows\n- PNG or JPEG output\n- Custom save folder\n\nKeyboard shortcuts:\n- PrintScreen: Open selection with options\n- Win+Shift+PrintScreen: Full screen capture\n- Escape: Cancel",
+        "shortDescription": "Screenshot tool with customizable timestamp overlay",
+        "releaseNotes": "Version 2.0.1:\n- Improved clipboard copy performance\n- Bug fixes",
+        "features": [
+          "Real-time timestamp preview",
+          "Customizable banner or overlay",
+          "Multi-monitor support",
+          "System tray integration",
+          "Auto-start option"
+        ],
+        "keywords": [
+          "screenshot",
+          "screen capture",
+          "timestamp",
+          "printscreen",
+          "snipping tool"
+        ],
+        "images": {
+          "screenshot": [
+            {
+              "fileName": "screenshot1.png",
+              "description": "Selection with timestamp preview"
+            },
+            {
+              "fileName": "screenshot2.png",
+              "description": "Options dialog"
+            },
+            {
+              "fileName": "screenshot3.png",
+              "description": "System tray menu"
+            }
+          ]
+        }
+      }
+    },
+    "fr-fr": {
+      "baseListing": {
+        "title": "Smart PrtScr",
+        "description": "Un outil de capture d'écran léger pour Windows avec aperçu en temps réel du timestamp.\n\nFonctionnalités:\n- Rectangle de sélection avec poignées de redimensionnement\n- Aperçu en temps réel du timestamp avant sauvegarde\n- Modification des options en direct pendant la sélection\n- Support multi-écrans\n- Timestamp personnalisable: bannière (sombre/claire) ou superposition\n- Position, taille de police, couleur, alignement\n- Intégration dans la zone de notification\n- Démarrage automatique avec Windows\n- Export PNG ou JPEG\n- Dossier de sauvegarde personnalisé\n\nRaccourcis clavier:\n- Impr écran: Ouvrir la sélection avec options\n- Win+Maj+Impr écran: Capture plein écran\n- Échap: Annuler",
+        "shortDescription": "Outil de capture d'écran avec timestamp personnalisable",
+        "releaseNotes": "Version 2.0.1:\n- Amélioration des performances de copie dans le presse-papiers\n- Corrections de bugs",
+        "features": [
+          "Aperçu timestamp en temps réel",
+          "Bannière ou superposition personnalisable",
+          "Support multi-écrans",
+          "Intégration zone de notification",
+          "Option démarrage auto"
+        ],
+        "keywords": [
+          "capture écran",
+          "screenshot",
+          "timestamp",
+          "horodatage",
+          "outil capture"
+        ]
+      }
+    }
+  }
+}

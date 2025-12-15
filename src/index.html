@@ -386,6 +386,15 @@
         </div>
         <div class="path-section" style="margin-top: 8px;">
           <label style="font-size: 12px;">
+            <input type="checkbox" id="clipboardCopyToggle" onchange="toggleClipboardCopy()" checked>
+            <strong>Copier dans le presse-papiers</strong>
+          </label>
+          <div class="info">
+            Copie automatiquement la capture dans le presse-papiers lors de l'enregistrement.
+          </div>
+        </div>
+        <div class="path-section" style="margin-top: 8px;">
+          <label style="font-size: 12px;">
             <input type="checkbox" id="disableWindowsPrtScr" onchange="toggleWindowsPrtScr()">
             <strong>Désactiver capture Windows (recommandé)</strong>
           </label>
@@ -480,6 +489,7 @@
   <script type="module">
     const { invoke } = window.__TAURI__.core;
     const { getCurrentWindow, LogicalSize } = window.__TAURI__.window;
+    const { listen } = window.__TAURI__.event;
 
     const WINDOW_WIDTH = 450;
 
@@ -559,9 +569,10 @@
     }
 
     // Afficher une notification
-    function showNotification(message) {
+    function showNotification(message, type = 'success') {
       const notif = document.getElementById('notification');
       notif.textContent = message;
+      notif.style.background = type === 'warning' ? '#ff9800' : '#4caf50';
       notif.style.display = 'block';
       setTimeout(() => {
         notif.style.display = 'none';
@@ -586,6 +597,17 @@
         showNotification(checkbox.checked ? 'Démarrage automatique activé' : 'Démarrage automatique désactivé');
       } catch (error) {
         console.error('Error toggling auto start:', error);
+      }
+    }
+
+    // Basculer la copie dans le presse-papiers
+    window.toggleClipboardCopy = async function() {
+      const checkbox = document.getElementById('clipboardCopyToggle');
+      try {
+        await invoke('set_clipboard_copy_enabled', { enabled: checkbox.checked });
+        showNotification(checkbox.checked ? 'Copie dans le presse-papiers activée' : 'Copie dans le presse-papiers désactivée');
+      } catch (error) {
+        console.error('Error toggling clipboard copy:', error);
       }
     }
 
@@ -735,6 +757,9 @@
         // Windows PrtScr
         document.getElementById('disableWindowsPrtScr').checked = settings.windowsPrtScrDisabled;
 
+        // Clipboard copy
+        document.getElementById('clipboardCopyToggle').checked = settings.clipboardCopyEnabled;
+
         // Timestamp options
         const opts = settings.timestampOptions;
         document.getElementById('timestampEnabled').checked = opts.enabled;
@@ -754,6 +779,11 @@
         console.error('Error loading settings:', error);
       }
     }
+
+    // Listen for clipboard copy failure events
+    listen('clipboard-copy-failed', (event) => {
+      showNotification(event.payload.message, 'warning');
+    });
 
     loadAllSettings();
   </script>

@@ -164,6 +164,21 @@
       cursor: not-allowed;
     }
 
+    .btn-clipboard {
+      background: #2196f3;
+      color: white;
+    }
+
+    .btn-clipboard:hover:not(:disabled) {
+      background: #1976d2;
+    }
+
+    .btn-clipboard:disabled {
+      background: #ccc;
+      color: #888;
+      cursor: not-allowed;
+    }
+
     .hint {
       color: #888;
       font-size: 11px;
@@ -422,6 +437,7 @@
 
     <div class="buttons">
       <button class="btn-cancel" id="btnCancel">Annuler</button>
+      <button class="btn-clipboard" id="btnCopyOnly">Copier</button>
       <button class="btn-save" id="btnSave">Enregistrer</button>
     </div>
     </div>
@@ -445,15 +461,20 @@
       updateSaveButtonState();
     });
 
-    // Update save button state based on whether bounds are available
+    // Update save/copy buttons state based on whether bounds are available
     function updateSaveButtonState() {
       const saveBtn = document.getElementById('btnSave');
+      const copyBtn = document.getElementById('btnCopyOnly');
       if (currentBounds) {
         saveBtn.disabled = false;
         saveBtn.title = '';
+        copyBtn.disabled = false;
+        copyBtn.title = '';
       } else {
         saveBtn.disabled = true;
         saveBtn.title = 'Dessinez une sélection d\'abord';
+        copyBtn.disabled = true;
+        copyBtn.title = 'Dessinez une sélection d\'abord';
       }
     }
 
@@ -625,6 +646,48 @@
       }
     }
 
+    // Copier dans le presse-papiers uniquement (sans enregistrer)
+    async function copyToClipboardOnly() {
+      try {
+        // Check if selection bounds are available
+        if (!currentBounds) {
+          alert('Veuillez dessiner une sélection d\'abord');
+          return;
+        }
+
+        const options = getCurrentOptions();
+        const imageFormat = document.getElementById('imageFormat').value;
+
+        // S'assurer que fontSize est un entier valide
+        if (isNaN(options.fontSize) || options.fontSize < 8) {
+          options.fontSize = 14;
+        }
+
+        console.log('Processing selection for clipboard with bounds:', currentBounds);
+
+        // First process the selection to crop the image
+        await invoke('process_selection', { bounds: currentBounds });
+
+        console.log('Copying to clipboard with options:', { timestampOptions: options, imageFormat });
+
+        // Copy to clipboard only (no file save)
+        await invoke('copy_to_clipboard_only', {
+          timestampOptions: options,
+          imageFormat: imageFormat
+        });
+
+        console.log('Copied to clipboard successfully');
+
+        // Success: close windows (FR-010)
+        await invoke('close_window', { label: 'selection' });
+        await invoke('close_window', { label: 'filename-dialog' });
+      } catch (error) {
+        // Failure: show error, keep dialog open (FR-011)
+        console.error('Error copying to clipboard:', error);
+        alert('Échec de la copie: ' + error);
+      }
+    }
+
     // Initialisation
     async function init() {
       try {
@@ -665,6 +728,10 @@
     document.getElementById('btnCancel').addEventListener('click', () => {
       console.log('Cancel button clicked!');
       cancel();
+    });
+    document.getElementById('btnCopyOnly').addEventListener('click', () => {
+      console.log('Copy only button clicked!');
+      copyToClipboardOnly();
     });
     document.getElementById('btnClose').addEventListener('click', () => {
       cancel();

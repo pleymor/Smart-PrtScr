@@ -32,6 +32,9 @@ screenshots = "0.8"
 
 # Image processing
 image = "0.25"
+
+# Clipboard operations
+arboard = "3.4"
 imageproc = "0.25"
 ab_glyph = "0.2"
 

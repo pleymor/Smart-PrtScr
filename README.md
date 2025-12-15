@@ -70,6 +70,24 @@ The MSIX package will be created in `msix-output/`.
 
 #### Submission
 
+**Option A: CLI (Recommended)**
+
+```powershell
+# Install Microsoft Store CLI (first time only)
+winget install "Microsoft Store Developer CLI"
+
+# Build and publish in one command
+.\publish-store.ps1
+
+# Or publish an existing build
+.\publish-store.ps1 -SkipBuild
+
+# Dry run (see what would happen)
+.\publish-store.ps1 -DryRun
+```
+
+**Option B: Manual**
+
 1. Upload the unsigned MSIX to [Partner Center](https://partner.microsoft.com/dashboard)
 2. Microsoft will sign it with your Store certificate
 

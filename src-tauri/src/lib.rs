@@ -1,4 +1,7 @@
+mod autostart;
+
 use ab_glyph::{Font, FontArc, PxScale};
+use arboard::{Clipboard, ImageData};
 use chrono::Local;
 use image::{DynamicImage, ImageFormat, Rgba, RgbaImage};
 use imageproc::drawing::draw_text_mut;
@@ -8,18 +11,14 @@ use std::fs;
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::env;
 use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Listener, Manager, State, WebviewUrl, WebviewWindowBuilder,
 };
-use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
-use arboard::{Clipboard, ImageData};
-
 
 #[cfg(target_os = "windows")]
 use winreg::enums::*;
@@ -30,18 +29,18 @@ use winreg::RegKey;
 #[cfg(target_os = "windows")]
 mod keyboard_hook {
     use super::*;
-    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
-    use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, GetMessageW, RegisterClassW,
-        TranslateMessage, DispatchMessageW, DestroyWindow, PostMessageW,
-        WNDCLASSW, MSG, WM_HOTKEY, WM_QUIT, WINDOW_EX_STYLE, WINDOW_STYLE,
-    };
-    use windows::Win32::UI::Input::KeyboardAndMouse::{
-        RegisterHotKey, UnregisterHotKey, MOD_WIN, MOD_SHIFT, MOD_NOREPEAT,
-    };
-    use windows::core::PCWSTR;
-    use std::sync::OnceLock;
     use std::sync::atomic::{AtomicIsize, Ordering};
+    use std::sync::OnceLock;
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        RegisterHotKey, UnregisterHotKey, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
+        PostMessageW, RegisterClassW, TranslateMessage, MSG, WINDOW_EX_STYLE, WINDOW_STYLE,
+        WM_HOTKEY, WM_QUIT, WNDCLASSW,
+    };
 
     static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
     static HOOK_HWND: AtomicIsize = AtomicIsize::new(0);
@@ -50,7 +49,12 @@ mod keyboard_hook {
     const HOTKEY_WIN_SHIFT_PRTSCR: i32 = 1;
     const HOTKEY_PRTSCR: i32 = 2;
 
-    unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    unsafe extern "system" fn wnd_proc(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
         if msg == WM_HOTKEY {
             let hotkey_id = wparam.0 as i32;
             if hotkey_id == HOTKEY_WIN_SHIFT_PRTSCR || hotkey_id == HOTKEY_PRTSCR {
@@ -82,18 +86,29 @@ mod keyboard_hook {
                     PCWSTR(class_name.as_ptr()),
                     PCWSTR::null(),
                     WINDOW_STYLE::default(),
-                    0, 0, 0, 0,
+                    0,
+                    0,
+                    0,
+                    0,
                     HWND(-3isize as *mut std::ffi::c_void), // HWND_MESSAGE
                     None,
                     None,
                     None,
-                ).unwrap();
+                )
+                .unwrap();
 
                 // Store HWND for cleanup
                 HOOK_HWND.store(hwnd.0 as isize, Ordering::SeqCst);
 
                 // Win+Shift+PrintScreen (works in fullscreen games)
-                if RegisterHotKey(hwnd, HOTKEY_WIN_SHIFT_PRTSCR, MOD_WIN | MOD_SHIFT | MOD_NOREPEAT, VK_SNAPSHOT).is_ok() {
+                if RegisterHotKey(
+                    hwnd,
+                    HOTKEY_WIN_SHIFT_PRTSCR,
+                    MOD_WIN | MOD_SHIFT | MOD_NOREPEAT,
+                    VK_SNAPSHOT,
+                )
+                .is_ok()
+                {
                     println!("[HOTKEY] Win+Shift+PrintScreen registered");
                 }
 
@@ -129,7 +144,7 @@ mod keyboard_hook {
 // State structures
 #[derive(Clone)]
 pub struct RawScreenshot {
-    pub data: Vec<u8>,  // RGBA raw data
+    pub data: Vec<u8>, // RGBA raw data
     pub width: u32,
     pub height: u32,
 }
@@ -278,7 +293,12 @@ fn add_timestamp_to_image(
     if !options.enabled {
         let rgba_pixels = rgba_img.as_raw().clone();
         let encoded_bytes = encode_image(&DynamicImage::ImageRgba8(rgba_img), format)?;
-        return Ok(ProcessedImage { encoded_bytes, rgba_pixels, width, height });
+        return Ok(ProcessedImage {
+            encoded_bytes,
+            rgba_pixels,
+            width,
+            height,
+        });
     }
 
     let timestamp = Local::now().format("%d/%m/%Y %H:%M:%S").to_string();
@@ -307,10 +327,23 @@ fn add_timestamp_to_image(
             _ => (width as i32 - text_width) / 2,
         };
 
-        draw_text_mut(&mut rgba_img, text_color, text_x, text_y, scale, &font, &timestamp);
+        draw_text_mut(
+            &mut rgba_img,
+            text_color,
+            text_x,
+            text_y,
+            scale,
+            &font,
+            &timestamp,
+        );
         let rgba_pixels = rgba_img.as_raw().clone();
         let encoded_bytes = encode_image(&DynamicImage::ImageRgba8(rgba_img), format)?;
-        Ok(ProcessedImage { encoded_bytes, rgba_pixels, width, height })
+        Ok(ProcessedImage {
+            encoded_bytes,
+            rgba_pixels,
+            width,
+            height,
+        })
     } else {
         // Banner mode: add banner above or below image
         let new_height = height + banner_height;
@@ -347,10 +380,23 @@ fn add_timestamp_to_image(
         };
         let text_y = banner_y as i32 + (banner_height as i32 - options.font_size as i32) / 2;
 
-        draw_text_mut(&mut new_img, text_color, text_x, text_y, scale, &font, &timestamp);
+        draw_text_mut(
+            &mut new_img,
+            text_color,
+            text_x,
+            text_y,
+            scale,
+            &font,
+            &timestamp,
+        );
         let rgba_pixels = new_img.as_raw().clone();
         let encoded_bytes = encode_image(&DynamicImage::ImageRgba8(new_img), format)?;
-        Ok(ProcessedImage { encoded_bytes, rgba_pixels, width: width, height: new_height })
+        Ok(ProcessedImage {
+            encoded_bytes,
+            rgba_pixels,
+            width,
+            height: new_height,
+        })
     }
 }
 
@@ -371,7 +417,8 @@ fn encode_image(img: &DynamicImage, format: &str) -> Result<Vec<u8>, String> {
     } else {
         ImageFormat::Jpeg
     };
-    img.write_to(&mut buffer, img_format).map_err(|e| e.to_string())?;
+    img.write_to(&mut buffer, img_format)
+        .map_err(|e| e.to_string())?;
     Ok(buffer.into_inner())
 }
 
@@ -390,21 +437,21 @@ fn copy_rgba_to_clipboard(pixels: Vec<u8>, width: u32, height: u32) -> Result<()
 // Tauri commands
 #[tauri::command]
 async fn get_all_settings(app: AppHandle) -> Result<AllSettings, String> {
-    use tauri_plugin_autostart::ManagerExt;
-
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     let default_path = get_default_screenshot_path();
 
     // Save path
-    let save_path = store.get("screenshotPath")
+    let save_path = store
+        .get("screenshotPath")
         .and_then(|p| p.as_str().map(|s| s.to_string()))
         .unwrap_or_else(|| default_path.to_string_lossy().to_string());
 
-    // Auto start
-    let auto_start = app.autolaunch().is_enabled().unwrap_or(false);
+    // Auto start - using new autostart module
+    let auto_start = autostart::is_enabled().unwrap_or(false);
 
     // Image format
-    let image_format = store.get("imageFormat")
+    let image_format = store
+        .get("imageFormat")
         .and_then(|f| f.as_str().map(|s| s.to_string()))
         .unwrap_or_else(|| "jpg".to_string());
 
@@ -421,12 +468,14 @@ async fn get_all_settings(app: AppHandle) -> Result<AllSettings, String> {
     let windows_prtscr_disabled = false;
 
     // Timestamp options
-    let timestamp_options = store.get("timestampOptions")
+    let timestamp_options = store
+        .get("timestampOptions")
         .and_then(|o| serde_json::from_value(o.clone()).ok())
         .unwrap_or_default();
 
     // Clipboard copy enabled (default: true)
-    let clipboard_copy_enabled = store.get("clipboardCopyEnabled")
+    let clipboard_copy_enabled = store
+        .get("clipboardCopyEnabled")
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
 
@@ -442,7 +491,10 @@ async fn get_all_settings(app: AppHandle) -> Result<AllSettings, String> {
 
 #[tauri::command]
 async fn get_save_path(app: AppHandle) -> Result<String, String> {
-    println!("[LOG] {} get_save_path called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} get_save_path called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     let default_path = get_default_screenshot_path();
 
@@ -458,11 +510,13 @@ async fn get_save_path(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 async fn set_save_path(app: AppHandle) -> Result<Option<String>, String> {
     // Get the appropriate parent window (filename-dialog during capture, main otherwise)
-    let parent_window = app.get_webview_window("filename-dialog")
+    let parent_window = app
+        .get_webview_window("filename-dialog")
         .or_else(|| app.get_webview_window("main"));
 
     // Open folder picker dialog (blocking)
-    let mut builder = app.dialog()
+    let mut builder = app
+        .dialog()
         .file()
         .set_title("Choisir le dossier de destination");
 
@@ -508,7 +562,10 @@ async fn get_timestamp_options(app: AppHandle) -> Result<TimestampOptions, Strin
 }
 
 #[tauri::command]
-async fn set_timestamp_options(app: AppHandle, options: TimestampOptions) -> Result<TimestampOptions, String> {
+async fn set_timestamp_options(
+    app: AppHandle,
+    options: TimestampOptions,
+) -> Result<TimestampOptions, String> {
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     store.set("timestampOptions", serde_json::to_value(&options).unwrap());
     store.save().map_err(|e| e.to_string())?;
@@ -548,7 +605,8 @@ async fn set_image_format(app: AppHandle, format: String) -> Result<String, Stri
 #[tauri::command]
 async fn get_clipboard_copy_enabled(app: AppHandle) -> Result<bool, String> {
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
-    Ok(store.get("clipboardCopyEnabled")
+    Ok(store
+        .get("clipboardCopyEnabled")
         .and_then(|v| v.as_bool())
         .unwrap_or(true)) // Default: enabled (FR-003)
 }
@@ -562,20 +620,16 @@ async fn set_clipboard_copy_enabled(app: AppHandle, enabled: bool) -> Result<boo
 }
 
 #[tauri::command]
-async fn get_auto_start(app: AppHandle) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let autostart = app.autolaunch();
-    autostart.is_enabled().map_err(|e| e.to_string())
+async fn get_auto_start() -> Result<bool, String> {
+    autostart::is_enabled()
 }
 
 #[tauri::command]
-async fn set_auto_start(app: AppHandle, enabled: bool) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let autostart = app.autolaunch();
+async fn set_auto_start(enabled: bool) -> Result<bool, String> {
     if enabled {
-        autostart.enable().map_err(|e| e.to_string())?;
+        autostart::enable()?;
     } else {
-        autostart.disable().map_err(|e| e.to_string())?;
+        autostart::disable()?;
     }
     Ok(enabled)
 }
@@ -585,12 +639,10 @@ async fn set_auto_start(app: AppHandle, enabled: bool) -> Result<bool, String> {
 async fn get_windows_prtscr_disabled() -> Result<bool, String> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     match hkcu.open_subkey("Control Panel\\Keyboard") {
-        Ok(key) => {
-            match key.get_value::<u32, _>("PrintScreenKeyForSnippingEnabled") {
-                Ok(value) => Ok(value == 0),
-                Err(_) => Ok(false),
-            }
-        }
+        Ok(key) => match key.get_value::<u32, _>("PrintScreenKeyForSnippingEnabled") {
+            Ok(value) => Ok(value == 0),
+            Err(_) => Ok(false),
+        },
         Err(_) => Ok(false),
     }
 }
@@ -624,11 +676,20 @@ async fn set_windows_prtscr_disabled(_disabled: bool) -> Result<bool, String> {
 
 #[tauri::command]
 async fn capture_screen(_app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
-    println!("[PERF] {} capture_screen command called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[PERF] {} capture_screen command called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     // Return the temp file path for asset protocol loading
     let path_cache = state.current_screenshot_path.lock().unwrap();
-    let path = path_cache.as_ref().ok_or("No screenshot available. Capture was not performed before opening selection window.")?;
-    println!("[PERF] {} Returning path: {}", Local::now().format("%H:%M:%S%.3f"), path);
+    let path = path_cache.as_ref().ok_or(
+        "No screenshot available. Capture was not performed before opening selection window.",
+    )?;
+    println!(
+        "[PERF] {} Returning path: {}",
+        Local::now().format("%H:%M:%S%.3f"),
+        path
+    );
     Ok(path.clone())
 }
 
@@ -638,7 +699,11 @@ async fn process_selection(
     state: State<'_, AppState>,
     bounds: SelectionBounds,
 ) -> Result<(), String> {
-    println!("[LOG] {} process_selection called with bounds: {:?}", Local::now().format("%H:%M:%S%.3f"), bounds);
+    println!(
+        "[LOG] {} process_selection called with bounds: {:?}",
+        Local::now().format("%H:%M:%S%.3f"),
+        bounds
+    );
     let current = state.current_screenshot.lock().unwrap();
     let raw = current.as_ref().ok_or("No screenshot available")?;
 
@@ -657,7 +722,9 @@ async fn process_selection(
 
     // Convert to PNG bytes for final storage (quality matters here)
     let mut buffer = Cursor::new(Vec::new());
-    cropped.write_to(&mut buffer, ImageFormat::Png).map_err(|e| e.to_string())?;
+    cropped
+        .write_to(&mut buffer, ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
     let cropped_data = buffer.into_inner();
 
     // Store pending screenshot
@@ -681,7 +748,10 @@ async fn save_screenshot(
     state: State<'_, AppState>,
     data: SaveData,
 ) -> Result<String, String> {
-    println!("[LOG] {} save_screenshot called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} save_screenshot called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     let pending = {
         let mut lock = state.pending_screenshot.lock().unwrap();
         lock.take()
@@ -699,7 +769,11 @@ async fn save_screenshot(
     }
 
     // Get timestamp options and format
-    let extension = if data.image_format == "png" { "png" } else { "jpg" };
+    let extension = if data.image_format == "png" {
+        "png"
+    } else {
+        "jpg"
+    };
     let filename = format!("{}.{}", data.filename, extension);
     let full_path = save_dir.join(&filename);
 
@@ -715,20 +789,33 @@ async fn save_screenshot(
 
     // Copy to clipboard if enabled (after successful file save per FR-006)
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
-    let clipboard_enabled = store.get("clipboardCopyEnabled")
+    let clipboard_enabled = store
+        .get("clipboardCopyEnabled")
         .and_then(|v| v.as_bool())
         .unwrap_or(true); // Default: enabled (FR-003)
 
     if clipboard_enabled {
         // Use raw RGBA directly - no re-decoding needed
-        if let Err(e) = copy_rgba_to_clipboard(processed.rgba_pixels, processed.width, processed.height) {
+        if let Err(e) =
+            copy_rgba_to_clipboard(processed.rgba_pixels, processed.width, processed.height)
+        {
             // FR-005: File save succeeded, emit error event but don't fail
-            println!("[LOG] {} Clipboard copy failed: {}", Local::now().format("%H:%M:%S%.3f"), e);
-            let _ = app.emit("clipboard-copy-failed", ClipboardErrorPayload {
-                message: "Screenshot saved but clipboard copy failed".to_string(),
-            });
+            println!(
+                "[LOG] {} Clipboard copy failed: {}",
+                Local::now().format("%H:%M:%S%.3f"),
+                e
+            );
+            let _ = app.emit(
+                "clipboard-copy-failed",
+                ClipboardErrorPayload {
+                    message: "Screenshot saved but clipboard copy failed".to_string(),
+                },
+            );
         } else {
-            println!("[LOG] {} Screenshot copied to clipboard", Local::now().format("%H:%M:%S%.3f"));
+            println!(
+                "[LOG] {} Screenshot copied to clipboard",
+                Local::now().format("%H:%M:%S%.3f")
+            );
         }
     }
 
@@ -755,7 +842,10 @@ async fn copy_to_clipboard_only(
     timestamp_options: TimestampOptions,
     image_format: String,
 ) -> Result<(), String> {
-    println!("[LOG] {} copy_to_clipboard_only called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} copy_to_clipboard_only called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
 
     // Get pending screenshot (don't take ownership yet in case of failure)
     let image_data = {
@@ -780,13 +870,19 @@ async fn copy_to_clipboard_only(
     set_timestamp_options(app.clone(), timestamp_options).await?;
     set_image_format(app, image_format).await?;
 
-    println!("[LOG] {} Screenshot copied to clipboard (no file saved)", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} Screenshot copied to clipboard (no file saved)",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     Ok(())
 }
 
 #[tauri::command]
 async fn get_default_filename(state: State<'_, AppState>) -> Result<String, String> {
-    println!("[LOG] {} get_default_filename called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} get_default_filename called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     let pending = state.pending_screenshot.lock().unwrap();
     if let Some(p) = pending.as_ref() {
         Ok(p.default_filename.clone())
@@ -797,17 +893,23 @@ async fn get_default_filename(state: State<'_, AppState>) -> Result<String, Stri
 
 #[tauri::command]
 async fn get_preview_image(state: State<'_, AppState>) -> Result<String, String> {
-    println!("[LOG] {} get_preview_image called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} get_preview_image called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     let pending = state.pending_screenshot.lock().unwrap();
     let screenshot = pending.as_ref().ok_or("No pending screenshot")?;
 
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     Ok(general_purpose::STANDARD.encode(&screenshot.image_data))
 }
 
 #[tauri::command]
 async fn cancel_screenshot(state: State<'_, AppState>) -> Result<(), String> {
-    println!("[LOG] {} cancel_screenshot called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} cancel_screenshot called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     let mut pending = state.pending_screenshot.lock().unwrap();
     *pending = None;
     drop(pending);
@@ -820,7 +922,10 @@ async fn cancel_screenshot(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
-    println!("[LOG] {} open_filename_dialog called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} open_filename_dialog called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     let existing = app.get_webview_window("filename-dialog");
     if existing.is_some() {
         return Ok(());
@@ -829,16 +934,21 @@ fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
     let icon_bytes = include_bytes!("../icons/32x32.png");
     let icon = Image::from_bytes(icon_bytes).map_err(|e| e.to_string())?;
 
-    WebviewWindowBuilder::new(app, "filename-dialog", WebviewUrl::App("filename-dialog.html".into()))
-        .title("Smart PrtScr - Options")
-        .icon(icon).map_err(|e| e.to_string())?
-        .inner_size(480.0, 400.0)
-        .resizable(true)
-        .decorations(false)
-        .always_on_top(true)
-        .center()
-        .build()
-        .map_err(|e| e.to_string())?;
+    WebviewWindowBuilder::new(
+        app,
+        "filename-dialog",
+        WebviewUrl::App("filename-dialog.html".into()),
+    )
+    .title("Smart PrtScr - Options")
+    .icon(icon)
+    .map_err(|e| e.to_string())?
+    .inner_size(480.0, 400.0)
+    .resizable(true)
+    .decorations(false)
+    .always_on_top(true)
+    .center()
+    .build()
+    .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -846,7 +956,10 @@ fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
 fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result<(), String> {
     use std::time::Instant;
     let start = Instant::now();
-    println!("[PERF] {} open_selection_window START", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[PERF] {} open_selection_window START",
+        Local::now().format("%H:%M:%S%.3f")
+    );
 
     let existing = app.get_webview_window("selection");
     if existing.is_some() {
@@ -857,11 +970,19 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
     let t1 = Instant::now();
     let screens = Screen::all().map_err(|e| e.to_string())?;
     let screen = screens.first().ok_or("No screen found")?;
-    println!("[PERF] {} Screen::all() took {:?}", Local::now().format("%H:%M:%S%.3f"), t1.elapsed());
+    println!(
+        "[PERF] {} Screen::all() took {:?}",
+        Local::now().format("%H:%M:%S%.3f"),
+        t1.elapsed()
+    );
 
     let t2 = Instant::now();
     let capture = screen.capture().map_err(|e| e.to_string())?;
-    println!("[PERF] {} screen.capture() took {:?}", Local::now().format("%H:%M:%S%.3f"), t2.elapsed());
+    println!(
+        "[PERF] {} screen.capture() took {:?}",
+        Local::now().format("%H:%M:%S%.3f"),
+        t2.elapsed()
+    );
 
     // Get screen info for window size
     let info = screen.display_info;
@@ -871,7 +992,11 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
     let rgba_data = capture.as_raw().to_vec();
     let width = capture.width();
     let height = capture.height();
-    println!("[PERF] {} as_raw().to_vec() took {:?}", Local::now().format("%H:%M:%S%.3f"), t3.elapsed());
+    println!(
+        "[PERF] {} as_raw().to_vec() took {:?}",
+        Local::now().format("%H:%M:%S%.3f"),
+        t3.elapsed()
+    );
 
     // Write BMP to temp file for fast loading via asset protocol
     let t4 = Instant::now();
@@ -880,7 +1005,11 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
     let temp_path = std::env::temp_dir().join("smart-prtscr-preview.bmp");
     img.save(&temp_path).map_err(|e| e.to_string())?;
     let temp_path_str = temp_path.to_string_lossy().to_string();
-    println!("[PERF] {} BMP save to temp file took {:?}", Local::now().format("%H:%M:%S%.3f"), t4.elapsed());
+    println!(
+        "[PERF] {} BMP save to temp file took {:?}",
+        Local::now().format("%H:%M:%S%.3f"),
+        t4.elapsed()
+    );
 
     // Store the screenshot data in state
     {
@@ -895,29 +1024,46 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
         let mut path_cache = state.current_screenshot_path.lock().unwrap();
         *path_cache = Some(temp_path_str);
     }
-    println!("[PERF] {} Total before window creation: {:?}", Local::now().format("%H:%M:%S%.3f"), start.elapsed());
+    println!(
+        "[PERF] {} Total before window creation: {:?}",
+        Local::now().format("%H:%M:%S%.3f"),
+        start.elapsed()
+    );
 
     let t6 = Instant::now();
-    let _window = WebviewWindowBuilder::new(app, "selection", WebviewUrl::App("selection.html".into()))
-        .title("Selection")
-        .inner_size(info.width as f64, info.height as f64)
-        .position(info.x as f64, info.y as f64)
-        .fullscreen(true)
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .resizable(false)
-        .visible(false)
-        .build()
-        .map_err(|e| e.to_string())?;
-    println!("[PERF] {} Window creation took {:?}", Local::now().format("%H:%M:%S%.3f"), t6.elapsed());
+    let _window =
+        WebviewWindowBuilder::new(app, "selection", WebviewUrl::App("selection.html".into()))
+            .title("Selection")
+            .inner_size(info.width as f64, info.height as f64)
+            .position(info.x as f64, info.y as f64)
+            .fullscreen(true)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .resizable(false)
+            .visible(false)
+            .build()
+            .map_err(|e| e.to_string())?;
+    println!(
+        "[PERF] {} Window creation took {:?}",
+        Local::now().format("%H:%M:%S%.3f"),
+        t6.elapsed()
+    );
 
     // Open filename-dialog simultaneously (centered, always on top)
     let t7 = Instant::now();
     open_filename_dialog(app)?;
-    println!("[PERF] {} filename-dialog creation took {:?}", Local::now().format("%H:%M:%S%.3f"), t7.elapsed());
+    println!(
+        "[PERF] {} filename-dialog creation took {:?}",
+        Local::now().format("%H:%M:%S%.3f"),
+        t7.elapsed()
+    );
 
-    println!("[PERF] {} TOTAL open_selection_window: {:?}", Local::now().format("%H:%M:%S%.3f"), start.elapsed());
+    println!(
+        "[PERF] {} TOTAL open_selection_window: {:?}",
+        Local::now().format("%H:%M:%S%.3f"),
+        start.elapsed()
+    );
 
     // Window will be shown by frontend after image is loaded (via show_selection_window command)
 
@@ -925,7 +1071,10 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
 }
 
 fn open_main_window(app: &AppHandle) -> Result<(), String> {
-    println!("[LOG] {} open_main_window called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} open_main_window called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     if let Some(window) = app.get_webview_window("main") {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
@@ -937,7 +1086,8 @@ fn open_main_window(app: &AppHandle) -> Result<(), String> {
 
     WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Smart PrtScr")
-        .icon(icon).map_err(|e| e.to_string())?
+        .icon(icon)
+        .map_err(|e| e.to_string())?
         .inner_size(450.0, 300.0)
         .resizable(true)
         .decorations(false)
@@ -950,13 +1100,20 @@ fn open_main_window(app: &AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 async fn start_capture(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    println!("[LOG] {} start_capture called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} start_capture called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     open_selection_window(&app, &state)
 }
 
 #[tauri::command]
 async fn close_window(app: AppHandle, label: String) -> Result<(), String> {
-    println!("[LOG] {} close_window called for: {}", Local::now().format("%H:%M:%S%.3f"), label);
+    println!(
+        "[LOG] {} close_window called for: {}",
+        Local::now().format("%H:%M:%S%.3f"),
+        label
+    );
     if let Some(window) = app.get_webview_window(&label) {
         window.close().map_err(|e| e.to_string())?;
     }
@@ -965,7 +1122,11 @@ async fn close_window(app: AppHandle, label: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn hide_window(app: AppHandle, label: String) -> Result<(), String> {
-    println!("[LOG] {} hide_window called for: {}", Local::now().format("%H:%M:%S%.3f"), label);
+    println!(
+        "[LOG] {} hide_window called for: {}",
+        Local::now().format("%H:%M:%S%.3f"),
+        label
+    );
     if let Some(window) = app.get_webview_window(&label) {
         window.hide().map_err(|e| e.to_string())?;
     }
@@ -974,13 +1135,20 @@ async fn hide_window(app: AppHandle, label: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn log_message(message: String) -> Result<(), String> {
-    println!("[FRONTEND] {} {}", Local::now().format("%H:%M:%S%.3f"), message);
+    println!(
+        "[FRONTEND] {} {}",
+        Local::now().format("%H:%M:%S%.3f"),
+        message
+    );
     Ok(())
 }
 
 #[tauri::command]
 async fn show_selection_window(app: AppHandle) -> Result<(), String> {
-    println!("[LOG] {} show_selection_window called", Local::now().format("%H:%M:%S%.3f"));
+    println!(
+        "[LOG] {} show_selection_window called",
+        Local::now().format("%H:%M:%S%.3f")
+    );
     if let Some(window) = app.get_webview_window("selection") {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
@@ -1019,10 +1187,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            Some(vec!["--hidden"]),
-        ))
+        // Note: tauri-plugin-autostart removed - using custom autostart module instead
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = open_main_window(app);
         }))
@@ -1061,8 +1226,10 @@ pub fn run() {
         .setup(|app| {
             // Setup system tray
             let open_item = MenuItemBuilder::with_id("open", "Ouvrir").build(app)?;
-            let capture_item = MenuItemBuilder::with_id("capture", "Capturer (PrtScr)").build(app)?;
-            let folder_item = MenuItemBuilder::with_id("folder", "Dossier de sauvegarde").build(app)?;
+            let capture_item =
+                MenuItemBuilder::with_id("capture", "Capturer (PrtScr)").build(app)?;
+            let folder_item =
+                MenuItemBuilder::with_id("folder", "Dossier de sauvegarde").build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "Quitter").build(app)?;
 
             let menu = MenuBuilder::new(app)
@@ -1082,33 +1249,29 @@ pub fn run() {
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .tooltip("Smart PrtScr - Ready")
-                .on_menu_event(move |app, event| {
-                    match event.id().as_ref() {
-                        "open" => {
-                            let _ = open_main_window(app);
-                        }
-                        "capture" => {
-                            let state: State<'_, AppState> = app.state();
-                            let _ = open_selection_window(app, &state);
-                        }
-                        "folder" => {
-                            let app_clone = app.clone();
-                            tauri::async_runtime::spawn(async move {
-                                if let Ok(path) = get_save_path(app_clone).await {
-                                    #[cfg(target_os = "windows")]
-                                    let _ = std::process::Command::new("explorer")
-                                        .arg(&path)
-                                        .spawn();
-                                }
-                            });
-                        }
-                        "quit" => {
-                            #[cfg(target_os = "windows")]
-                            keyboard_hook::stop_hook();
-                            std::process::exit(0);
-                        }
-                        _ => {}
+                .on_menu_event(move |app, event| match event.id().as_ref() {
+                    "open" => {
+                        let _ = open_main_window(app);
                     }
+                    "capture" => {
+                        let state: State<'_, AppState> = app.state();
+                        let _ = open_selection_window(app, &state);
+                    }
+                    "folder" => {
+                        let app_clone = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Ok(path) = get_save_path(app_clone).await {
+                                #[cfg(target_os = "windows")]
+                                let _ = std::process::Command::new("explorer").arg(&path).spawn();
+                            }
+                        });
+                    }
+                    "quit" => {
+                        #[cfg(target_os = "windows")]
+                        keyboard_hook::stop_hook();
+                        std::process::exit(0);
+                    }
+                    _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let TrayIconEvent::Click {
@@ -1137,6 +1300,41 @@ pub fn run() {
             // Start global hotkey handler
             #[cfg(target_os = "windows")]
             keyboard_hook::start_hook(app.handle().clone());
+
+            // Verify autostart configuration on app launch
+            // This repairs the registry entry if it was removed (Windows 10 bug workaround)
+            let app_handle_for_autostart = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let store = app_handle_for_autostart.store("settings.json");
+                if let Ok(store) = store {
+                    // Check if user has autostart enabled in settings
+                    let autostart_enabled = store
+                        .get("autoStart")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+
+                    if autostart_enabled {
+                        match autostart::verify_and_repair(true) {
+                            Ok(true) => {
+                                println!("[AUTOSTART] Configuration verified - no repair needed")
+                            }
+                            Ok(false) => {
+                                println!("[AUTOSTART] Configuration repaired successfully")
+                            }
+                            Err(e) => {
+                                println!("[AUTOSTART] Verification failed: {}", e);
+                                // Show non-blocking notification to user
+                                let _ = app_handle_for_autostart.emit(
+                                    "autostart-error",
+                                    serde_json::json!({
+                                        "message": format!("Auto-start configuration failed: {}", e)
+                                    }),
+                                );
+                            }
+                        }
+                    }
+                }
+            });
 
             if cfg!(debug_assertions) {
                 app.handle().plugin(

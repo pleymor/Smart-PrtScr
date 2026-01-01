@@ -1,2 +1,2 @@
-- write commit messages and code in english
+﻿- write commit messages and code in english
 - don't mention claude in commit messages

@@ -4804,6 +4804,7 @@ version = "2.0.2"
 dependencies = [
  "ab_glyph",
  "arboard",
+ "auto-launch",
  "base64 0.22.1",
  "chrono",
  "dirs 5.0.1",
@@ -4815,7 +4816,6 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
- "tauri-plugin-autostart",
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
  "tauri-plugin-log",
@@ -5187,20 +5187,6 @@ dependencies = [
  "tauri-utils",
  "toml 0.9.8",
  "walkdir",
-]
-
-[[package]]
-name = "tauri-plugin-autostart"
-version = "2.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "459383cebc193cdd03d1ba4acc40f2c408a7abce419d64bdcd2d745bc2886f70"
-dependencies = [
- "auto-launch",
- "serde",
- "serde_json",
- "tauri",
- "tauri-plugin",
- "thiserror 2.0.17",
 ]
 
 [[package]]

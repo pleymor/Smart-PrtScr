@@ -131,7 +131,7 @@ mod keyboard_hook {
 }
 
 /// What a click on the tray icon does (the options stay reachable from the
-/// right-click menu, "Ouvrir").
+/// right-click menu, "Options").
 #[derive(Debug, PartialEq, Eq)]
 enum TrayClickAction {
     StartCapture,

@@ -7,7 +7,12 @@
     html, body {
       margin: 0;
       padding: 0;
-      overflow: hidden;
+    }
+
+    html {
+      /* Vertical scroll bar when the content is taller than the window */
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     body {
@@ -486,6 +491,7 @@
 
   <div class="notification" id="notification"></div>
 
+  <script src="window-fit.js"></script>
   <script type="module">
     const { invoke } = window.__TAURI__.core;
     const { getCurrentWindow, LogicalSize } = window.__TAURI__.window;
@@ -497,7 +503,8 @@
     async function adjustWindowHeight(animate = true) {
       try {
         const win = getCurrentWindow();
-        const targetHeight = document.body.scrollHeight;
+        // Follow the content but stay within the screen; the page scrolls beyond that.
+        const targetHeight = WindowFit.fitWindowHeight(document.body.scrollHeight, window.screen.availHeight);
 
         if (!animate) {
           await win.setSize(new LogicalSize(WINDOW_WIDTH, targetHeight));

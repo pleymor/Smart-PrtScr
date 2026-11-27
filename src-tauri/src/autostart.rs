@@ -75,7 +75,9 @@ mod imp {
 
     /// WinRT calls need an initialized apartment: run them on a dedicated MTA thread.
     fn with_startup_task<T: Send + 'static>(
-        f: impl FnOnce(&windows::ApplicationModel::StartupTask) -> windows::core::Result<T> + Send + 'static,
+        f: impl FnOnce(&windows::ApplicationModel::StartupTask) -> windows::core::Result<T>
+            + Send
+            + 'static,
     ) -> Result<T, String> {
         std::thread::spawn(move || -> Result<T, String> {
             use windows::ApplicationModel::StartupTask;
@@ -108,12 +110,16 @@ mod imp {
             }
         })?;
         if enabled && state == StartupTaskState::DisabledByUser {
-            return Err("Le démarrage automatique a été désactivé dans le Gestionnaire des tâches \
+            return Err(
+                "Le démarrage automatique a été désactivé dans le Gestionnaire des tâches \
                         (onglet Démarrage) : réactivez-le à cet endroit."
-                .to_string());
+                    .to_string(),
+            );
         }
         if enabled && state == StartupTaskState::DisabledByPolicy {
-            return Err("Le démarrage automatique est bloqué par une stratégie système.".to_string());
+            return Err(
+                "Le démarrage automatique est bloqué par une stratégie système.".to_string(),
+            );
         }
         Ok(task_enabled(state))
     }
@@ -144,14 +150,18 @@ mod imp {
         if enabled {
             let exe = std::env::current_exe().map_err(|e| e.to_string())?;
             let cmd = run_key_command(&exe.to_string_lossy(), &[STARTUP_ARG]);
-            run.set_value(RUN_VALUE_NAME, &cmd).map_err(|e| e.to_string())?;
+            run.set_value(RUN_VALUE_NAME, &cmd)
+                .map_err(|e| e.to_string())?;
             // Clear a previous "disabled in Task Manager" flag.
             if let Ok(approved) = hkcu.open_subkey_with_flags(APPROVED_KEY, KEY_SET_VALUE) {
                 let mut bytes = vec![0u8; 12];
                 bytes[0] = 0x02;
                 let _ = approved.set_raw_value(
                     RUN_VALUE_NAME,
-                    &RegValue { vtype: winreg::enums::RegType::REG_BINARY, bytes },
+                    &RegValue {
+                        vtype: winreg::enums::RegType::REG_BINARY,
+                        bytes,
+                    },
                 );
             }
         } else {
@@ -211,17 +221,27 @@ mod tests {
     #[test]
     fn run_key_command_quotes_paths_with_spaces() {
         assert_eq!(
-            run_key_command(r"C:\Program Files\Smart PrtScr\smart-prtscr.exe", &[STARTUP_ARG]),
+            run_key_command(
+                r"C:\Program Files\Smart PrtScr\smart-prtscr.exe",
+                &[STARTUP_ARG]
+            ),
             r#""C:\Program Files\Smart PrtScr\smart-prtscr.exe" --autostart"#
         );
         // Already-quoted input is not double-quoted.
-        assert_eq!(run_key_command(r#""C:\a b\x.exe""#, &[]), r#""C:\a b\x.exe""#);
+        assert_eq!(
+            run_key_command(r#""C:\a b\x.exe""#, &[]),
+            r#""C:\a b\x.exe""#
+        );
     }
 
     #[test]
     fn startup_approved_flag_is_decoded() {
-        assert!(startup_approved_is_enabled(&[0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
-        assert!(!startup_approved_is_enabled(&[0x03, 0, 0, 0, 0x10, 0x20, 0, 0, 0, 0, 0, 0]));
+        assert!(startup_approved_is_enabled(&[
+            0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        ]));
+        assert!(!startup_approved_is_enabled(&[
+            0x03, 0, 0, 0, 0x10, 0x20, 0, 0, 0, 0, 0, 0
+        ]));
         assert!(startup_approved_is_enabled(&[]));
     }
 
@@ -246,7 +266,10 @@ mod tests {
         let value: String = run.get_value(RUN_VALUE_NAME).unwrap();
         println!("Run value written: {}", value);
         let exe = std::env::current_exe().unwrap();
-        assert_eq!(value, run_key_command(&exe.to_string_lossy(), &[STARTUP_ARG]));
+        assert_eq!(
+            value,
+            run_key_command(&exe.to_string_lossy(), &[STARTUP_ARG])
+        );
         assert!(value.starts_with('"'));
         assert!(imp::run_key_is_enabled().unwrap());
 

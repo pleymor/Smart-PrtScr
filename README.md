@@ -7,7 +7,7 @@ A lightweight screenshot tool for Windows with real-time timestamp preview, mult
 - **Selection Rectangle**: Draw a custom area to capture with resize handles
 - **Real-time Timestamp Preview**: See exactly how your screenshot will look before saving
 - **Live Options Editing**: Modify timestamp settings and see changes instantly on the selection
-- **Multi-monitor Support**: Works seamlessly across multiple displays
+- **Multi-monitor Support**: The selection covers every connected screen (any arrangement, resolution or scaling), and a selection can span several screens
 - **Customizable Timestamp**: Banner (dark/light) or overlay mode, position, font size, color, alignment, and text styles
 - **System Tray**: Runs quietly in the background with quick access menu
 - **Auto-start**: Optional launch at Windows startup (Microsoft Store build: a Windows startup task, also visible in Task Manager > Startup apps; installer build: a `HKCU\...\Run` entry)
@@ -108,13 +108,13 @@ signtool sign /fd SHA256 /a /f cert.pfx /p password .\msix-output\SmartPrtScr_*.
 | Shortcut | Action |
 |----------|--------|
 | `PrintScreen` | Open the selection window (the options dialog appears once a zone is selected) |
-| `Win+Shift+PrintScreen` | Full screen capture (selection covers entire screen) |
+| `Win+Shift+PrintScreen` | Full screen capture (selection covers the screen under the cursor) |
 | `Escape` | Cancel capture |
 
 ### Capture Workflow
 
 1. Press `PrintScreen` (or left-click the tray icon) to start a capture
-2. Draw a rectangle on the screen to select the area
+2. Draw a rectangle on any screen to select the area (a simple click selects the whole screen under the cursor)
 3. The options dialog appears once the area is selected
 4. The timestamp preview appears on your selection in real-time
 5. Adjust timestamp options in the dialog - changes reflect instantly

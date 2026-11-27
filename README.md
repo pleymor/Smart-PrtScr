@@ -120,10 +120,12 @@ signtool sign /fd SHA256 /a /f cert.pfx /p password .\msix-output\SmartPrtScr_*.
 5. Adjust timestamp options in the dialog - changes reflect instantly
 6. Click **Save** to capture, or press `Escape` to cancel
 
-### System Tray Menu
+### System Tray
+
+Left-click the tray icon to start a capture.
 
 Right-click the tray icon to:
-- Open settings window
+- Open the options window
 - Start a new capture
 - Open the screenshots folder
 - Quit the application

@@ -126,6 +126,20 @@ mod keyboard_hook {
     }
 }
 
+/// What a click on the tray icon does (the options stay reachable from the
+/// right-click menu, "Ouvrir").
+#[derive(Debug, PartialEq, Eq)]
+enum TrayClickAction {
+    StartCapture,
+}
+
+fn tray_click_action(button: MouseButton, state: MouseButtonState) -> Option<TrayClickAction> {
+    match (button, state) {
+        (MouseButton::Left, MouseButtonState::Up) => Some(TrayClickAction::StartCapture),
+        _ => None,
+    }
+}
+
 // State structures
 #[derive(Clone)]
 pub struct RawScreenshot {
@@ -1060,7 +1074,7 @@ pub fn run() {
         ])
         .setup(|app| {
             // Setup system tray
-            let open_item = MenuItemBuilder::with_id("open", "Ouvrir").build(app)?;
+            let open_item = MenuItemBuilder::with_id("open", "Options").build(app)?;
             let capture_item = MenuItemBuilder::with_id("capture", "Capturer (PrtScr)").build(app)?;
             let folder_item = MenuItemBuilder::with_id("folder", "Dossier de sauvegarde").build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "Quitter").build(app)?;
@@ -1081,7 +1095,7 @@ pub fn run() {
                 .icon(icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
-                .tooltip("Smart PrtScr - Ready")
+                .tooltip("Smart PrtScr - Clic : capturer | Clic droit : menu")
                 .on_menu_event(move |app, event| {
                     match event.id().as_ref() {
                         "open" => {
@@ -1111,13 +1125,12 @@ pub fn run() {
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let _ = open_main_window(tray.app_handle());
+                    if let TrayIconEvent::Click { button, button_state, .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(TrayClickAction::StartCapture) = tray_click_action(button, button_state) {
+                            let state: State<'_, AppState> = app.state();
+                            let _ = open_selection_window(app, &state);
+                        }
                     }
                 })
                 .build(app)?;
@@ -1156,4 +1169,24 @@ pub fn run() {
                 api.prevent_exit();
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tray_left_click_starts_a_capture() {
+        assert_eq!(
+            tray_click_action(MouseButton::Left, MouseButtonState::Up),
+            Some(TrayClickAction::StartCapture)
+        );
+    }
+
+    #[test]
+    fn tray_other_clicks_do_nothing_so_the_right_click_menu_shows() {
+        assert_eq!(tray_click_action(MouseButton::Left, MouseButtonState::Down), None);
+        assert_eq!(tray_click_action(MouseButton::Right, MouseButtonState::Up), None);
+        assert_eq!(tray_click_action(MouseButton::Middle, MouseButtonState::Up), None);
+    }
 }

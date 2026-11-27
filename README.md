@@ -10,7 +10,7 @@ A lightweight screenshot tool for Windows with real-time timestamp preview, mult
 - **Multi-monitor Support**: Works seamlessly across multiple displays
 - **Customizable Timestamp**: Banner (dark/light) or overlay mode, position, font size, color, alignment, and text styles
 - **System Tray**: Runs quietly in the background with quick access menu
-- **Auto-start**: Optional launch at Windows startup
+- **Auto-start**: Optional launch at Windows startup (Microsoft Store build: a Windows startup task, also visible in Task Manager > Startup apps; installer build: a `HKCU\...\Run` entry)
 - **Configurable Output**: PNG or JPEG format, custom save folder
 
 ## Demo

@@ -3,8 +3,9 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap3 rescap">
+  IgnorableNamespaces="uap uap3 desktop rescap">
 
   <Identity
     Name="Pleymor.smart-prtscr"
@@ -39,6 +40,14 @@
         <uap:DefaultTile Square71x71Logo="icons\Square71x71Logo.png" />
         <uap:SplashScreen Image="icons\Square310x310Logo.png" />
       </uap:VisualElements>
+      <Extensions>
+        <!-- Launch at Windows startup: HKCU\...\Run is virtualized for packaged apps,
+             so the startup task is the only mechanism that works for the Store build.
+             TaskId must match STARTUP_TASK_ID in src-tauri/src/autostart.rs. -->
+        <desktop:Extension Category="windows.startupTask" Executable="smart-prtscr.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="SmartPrtScrStartup" Enabled="false" DisplayName="Smart PrtScr" />
+        </desktop:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

@@ -592,11 +592,21 @@
     // Basculer le démarrage automatique
     window.toggleAutoStart = async function() {
       const checkbox = document.getElementById('autoStart');
+      const requested = checkbox.checked;
       try {
-        await invoke('set_auto_start', { enabled: checkbox.checked });
-        showNotification(checkbox.checked ? 'Démarrage automatique activé' : 'Démarrage automatique désactivé');
+        // The backend returns the effective state (Windows may refuse, e.g. if the
+        // user disabled the app in Task Manager > Startup).
+        const effective = await invoke('set_auto_start', { enabled: requested });
+        checkbox.checked = effective;
+        if (effective === requested) {
+          showNotification(effective ? 'Démarrage automatique activé' : 'Démarrage automatique désactivé');
+        } else {
+          showNotification('Windows n\'a pas appliqué le changement', 'warning');
+        }
       } catch (error) {
         console.error('Error toggling auto start:', error);
+        checkbox.checked = !requested;
+        showNotification(String(error), 'warning');
       }
     }
 

@@ -15,10 +15,11 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Listener, Manager, State, WebviewUrl, WebviewWindowBuilder,
 };
-use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
 use arboard::{Clipboard, ImageData};
+
+mod autostart;
 
 
 #[cfg(target_os = "windows")]
@@ -404,8 +405,6 @@ fn copy_rgba_to_clipboard(pixels: Vec<u8>, width: u32, height: u32) -> Result<()
 // Tauri commands
 #[tauri::command]
 async fn get_all_settings(app: AppHandle) -> Result<AllSettings, String> {
-    use tauri_plugin_autostart::ManagerExt;
-
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     let default_path = get_default_screenshot_path();
 
@@ -415,7 +414,7 @@ async fn get_all_settings(app: AppHandle) -> Result<AllSettings, String> {
         .unwrap_or_else(|| default_path.to_string_lossy().to_string());
 
     // Auto start
-    let auto_start = app.autolaunch().is_enabled().unwrap_or(false);
+    let auto_start = autostart::is_enabled().unwrap_or(false);
 
     // Image format
     let image_format = store.get("imageFormat")
@@ -576,22 +575,14 @@ async fn set_clipboard_copy_enabled(app: AppHandle, enabled: bool) -> Result<boo
 }
 
 #[tauri::command]
-async fn get_auto_start(app: AppHandle) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let autostart = app.autolaunch();
-    autostart.is_enabled().map_err(|e| e.to_string())
+async fn get_auto_start() -> Result<bool, String> {
+    autostart::is_enabled()
 }
 
 #[tauri::command]
-async fn set_auto_start(app: AppHandle, enabled: bool) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let autostart = app.autolaunch();
-    if enabled {
-        autostart.enable().map_err(|e| e.to_string())?;
-    } else {
-        autostart.disable().map_err(|e| e.to_string())?;
-    }
-    Ok(enabled)
+async fn set_auto_start(enabled: bool) -> Result<bool, String> {
+    // Returns the effective state, so the checkbox reflects what Windows will do.
+    autostart::set_enabled(enabled)
 }
 
 #[cfg(target_os = "windows")]
@@ -1033,10 +1024,6 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            Some(vec!["--hidden"]),
-        ))
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = open_main_window(app);
         }))

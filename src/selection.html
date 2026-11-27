@@ -24,7 +24,9 @@
       left: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      /* The window spans the whole virtual desktop and has the image's aspect
+         ratio: stretch it exactly so CSS pixels map linearly to image pixels. */
+      object-fit: fill;
       filter: brightness(0.7);
     }
 
@@ -81,6 +83,7 @@
   <div class="instruction" id="instruction">Dessinez un rectangle pour selectionner</div>
   <div class="help">Glissez pour selectionner | Poignees pour modifier | Entree/Double-clic = capturer | Echap = annuler</div>
 
+  <script src="selection-geometry.js"></script>
   <script>
     const { invoke, convertFileSrc } = window.__TAURI__.core;
 
@@ -95,9 +98,56 @@
     const ctx = canvas.getContext('2d');
     const screenshotImg = document.getElementById('screenshot');
 
-    // Configurer le canvas en plein ecran
-    canvas.width = window.screen.width;
-    canvas.height = window.screen.height;
+    // The canvas covers the whole window, which spans every monitor
+    // (window.screen would only describe the current monitor).
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Capture description from the backend: image size and monitor regions.
+    let captureInfo = null;
+    let monitorsCss = [];
+    let lastPointer = null;
+
+    function updateMonitorLayout() {
+      if (!captureInfo) return;
+      monitorsCss = SelectionGeometry.monitorsToCss(
+        captureInfo.monitors, captureInfo.width, captureInfo.height,
+        canvas.width, canvas.height
+      );
+      positionOverlaysOnPrimaryMonitor();
+    }
+
+    // Keep the help texts on the primary monitor instead of the middle of the
+    // virtual desktop (which may fall between two monitors).
+    function positionOverlaysOnPrimaryMonitor() {
+      const primary = SelectionGeometry.primaryMonitor(monitorsCss);
+      if (!primary) return;
+      const instructionEl = document.getElementById('instruction');
+      instructionEl.style.left = (primary.x + primary.width / 2) + 'px';
+      instructionEl.style.top = (primary.y + primary.height / 2) + 'px';
+      const helpEl = document.querySelector('.help');
+      helpEl.style.left = (primary.x + primary.width / 2) + 'px';
+      helpEl.style.top = (primary.y + primary.height - 60) + 'px';
+      helpEl.style.bottom = 'auto';
+    }
+
+    // Size of the selection in captured (physical) pixels, for the label.
+    function imageSize(sel) {
+      if (!captureInfo || !canvas.width || !canvas.height) {
+        return { width: Math.round(sel.width), height: Math.round(sel.height) };
+      }
+      return {
+        width: Math.round(sel.width * captureInfo.width / canvas.width),
+        height: Math.round(sel.height * captureInfo.height / canvas.height)
+      };
+    }
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      updateMonitorLayout();
+      drawSelection();
+    });
 
     // ============================================
     // Constants
@@ -363,10 +413,11 @@
       ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
       ctx.fillRect(x, y, width, height);
 
-      // Draw dimensions
+      // Draw dimensions (captured pixels)
+      const size = imageSize(sel);
       ctx.fillStyle = 'white';
       ctx.font = '14px Arial';
-      ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + 5, y + 20);
+      ctx.fillText(`${size.width} x ${size.height}`, x + 5, y + 20);
 
       // Draw timestamp preview
       drawTimestampPreview(sel, appState.timestampOptions);
@@ -404,9 +455,10 @@
         ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
         ctx.fillRect(sel.x, sel.y, sel.width, sel.height);
 
+        const size = imageSize(sel);
         ctx.fillStyle = 'white';
         ctx.font = '14px Arial';
-        ctx.fillText(`${Math.round(sel.width)} x ${Math.round(sel.height)}`, sel.x + 5, sel.y + 20);
+        ctx.fillText(`${size.width} x ${size.height}`, sel.x + 5, sel.y + 20);
 
         // Draw timestamp preview during drawing
         drawTimestampPreview(sel, appState.timestampOptions);
@@ -550,8 +602,11 @@
 
         log('invoke capture_screen START');
         console.log('[PERF]', getTime(), 'invoke capture_screen START');
-        const filePath = await invoke('capture_screen');
-        log('invoke capture_screen DONE, path: ' + filePath);
+        captureInfo = await invoke('capture_screen');
+        const filePath = captureInfo.path;
+        updateMonitorLayout();
+        log('invoke capture_screen DONE, path: ' + filePath + ', ' + captureInfo.width + 'x' +
+            captureInfo.height + ', monitors: ' + JSON.stringify(captureInfo.monitors));
         console.log('[PERF]', getTime(), 'invoke capture_screen DONE');
 
         log('Setting img.src via asset protocol');
@@ -564,7 +619,12 @@
           log('Image loaded successfully');
           console.log('[PERF]', getTime(), 'Image loaded');
           await invoke('show_selection_window');
-          log('Window shown');
+          // The window may have been resized while being placed over all monitors.
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          updateMonitorLayout();
+          drawSelection();
+          log('Window shown, viewport ' + canvas.width + 'x' + canvas.height);
         };
 
         screenshotImg.onerror = (e) => {
@@ -584,22 +644,6 @@
       instruction.classList.remove('show');
     }, 2000);
 
-    // Envoyer la selection (fenetre reste ouverte pour apercu en temps reel)
-    async function completeSelection(x, y, width, height) {
-      try {
-        await invoke('process_selection', {
-          bounds: {
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(width),
-            height: Math.round(height)
-          }
-        });
-        // Window stays open - filename-dialog will close it when Save is clicked
-      } catch (error) {
-        console.error('Error processing selection:', error);
-      }
-    }
 
     // Annuler la selection
     async function cancelSelection() {
@@ -652,6 +696,7 @@
     canvas.addEventListener('mousemove', (e) => {
       const mouseX = e.clientX;
       const mouseY = e.clientY;
+      lastPointer = { x: mouseX, y: mouseY };
 
       if (appState.current === SelectionState.DRAWING && appState.drawStart) {
         appState.drawStart.currentX = mouseX;
@@ -691,8 +736,12 @@
           drawSelection();
           emitSelectionBounds(); // Notify dialog of new selection
         } else {
-          // Too small selection - create fullscreen selection
-          appState.selection = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+          // Too small selection (simple click) - select the whole monitor under the cursor
+          appState.selection = SelectionGeometry.fullMonitorSelection(
+            monitorsCss,
+            { x: appState.drawStart.x, y: appState.drawStart.y },
+            { width: canvas.width, height: canvas.height }
+          );
           appState.current = SelectionState.MODIFIABLE;
           appState.drawStart = null;
           drawSelection();
@@ -734,12 +783,10 @@
     // ============================================
     function createFullscreenSelection() {
       log('Creating fullscreen selection');
-      appState.selection = {
-        x: 0,
-        y: 0,
-        width: canvas.width,
-        height: canvas.height
-      };
+      // Whole monitor under the pointer (primary monitor if unknown)
+      appState.selection = SelectionGeometry.fullMonitorSelection(
+        monitorsCss, lastPointer, { width: canvas.width, height: canvas.height }
+      );
       appState.current = SelectionState.MODIFIABLE;
       drawSelection();
       // Emit bounds after a short delay to ensure emit function is available
@@ -749,20 +796,26 @@
     // ============================================
     // Event listener for fullscreen capture trigger
     // ============================================
-    const { listen, emitTo } = window.__TAURI__.event;
+    const { listen } = window.__TAURI__.event;
 
     // Emit selection bounds to filename-dialog for save
     function emitSelectionBounds() {
       if (appState.selection) {
+        // CSS pixels + viewport size: the backend converts to image pixels.
         const bounds = {
-          x: Math.round(appState.selection.x),
-          y: Math.round(appState.selection.y),
-          width: Math.round(appState.selection.width),
-          height: Math.round(appState.selection.height)
+          x: appState.selection.x,
+          y: appState.selection.y,
+          width: appState.selection.width,
+          height: appState.selection.height,
+          viewportWidth: canvas.width,
+          viewportHeight: canvas.height
         };
-        // Use emitTo to target the filename-dialog window specifically
-        emitTo('filename-dialog', 'selection-bounds-changed', bounds);
-        log('Emitted selection-bounds-changed: ' + JSON.stringify(bounds));
+        // Stores the bounds and opens the options dialog on the first selection
+        // (the dialog must not appear before a zone is selected).
+        invoke('selection_ready', { bounds })
+          .then(() => invoke('focus_dialog'))
+          .catch((err) => log('selection_ready failed: ' + err));
+        log('selection_ready: ' + JSON.stringify(bounds));
       }
     }
     listen('capture-full-screen', () => {

@@ -25,7 +25,6 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-store = "2"
-tauri-plugin-autostart = "2"
 
 # Screenshot capture
 screenshots = "0.8"
@@ -49,13 +48,16 @@ winreg = "0.55"
 
 # Windows API for global hotkeys
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_UI_Input_KeyboardAndMouse"] }
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_UI_Input_KeyboardAndMouse", "Win32_Storage_Packaging_Appx", "Win32_System_WinRT", "Win32_UI_HiDpi", "ApplicationModel", "Foundation"] }
 
 # Base64 encoding
 base64 = "0.22"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
 
 [features]
 default = ["custom-protocol"]

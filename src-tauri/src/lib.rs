@@ -13,12 +13,16 @@ use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Listener, Manager, State, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Emitter, Listener, Manager, Runtime, State, WebviewUrl, WebviewWindowBuilder,
 };
-use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
 use arboard::{Clipboard, ImageData};
+
+mod autostart;
+mod desktop;
+
+use desktop::{MonitorCapture, MonitorRegion, Rect};
 
 
 #[cfg(target_os = "windows")]
@@ -126,6 +130,20 @@ mod keyboard_hook {
     }
 }
 
+/// What a click on the tray icon does (the options stay reachable from the
+/// right-click menu, "Options").
+#[derive(Debug, PartialEq, Eq)]
+enum TrayClickAction {
+    StartCapture,
+}
+
+fn tray_click_action(button: MouseButton, state: MouseButtonState) -> Option<TrayClickAction> {
+    match (button, state) {
+        (MouseButton::Left, MouseButtonState::Up) => Some(TrayClickAction::StartCapture),
+        _ => None,
+    }
+}
+
 // State structures
 #[derive(Clone)]
 pub struct RawScreenshot {
@@ -139,6 +157,13 @@ pub struct AppState {
     pub current_screenshot: Mutex<Option<RawScreenshot>>,
     pub current_screenshot_path: Mutex<Option<String>>, // Temp file path for quick loading via asset protocol
     pub pending_screenshot: Mutex<Option<PendingScreenshot>>,
+    /// Last zone selected in the selection window (None until the user selects one).
+    pub selection_bounds: Mutex<Option<SelectionBounds>>,
+    /// Virtual-desktop rectangle covered by the current capture and by the
+    /// selection window (physical pixels, may have negative coordinates).
+    pub desktop_bounds: Mutex<Option<Rect>>,
+    /// Monitors inside the current capture (image pixels).
+    pub monitors: Mutex<Vec<MonitorRegion>>,
 }
 
 #[derive(Clone)]
@@ -181,12 +206,39 @@ impl Default for TimestampOptions {
     }
 }
 
+/// Zone selected in the selection window, in its CSS pixels, with the size of
+/// its viewport (needed to convert to image pixels whatever the DPI scale).
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct SelectionBounds {
-    pub x: i32,
-    pub y: i32,
-    pub width: i32,
-    pub height: i32,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    #[serde(rename = "viewportWidth")]
+    pub viewport_width: f64,
+    #[serde(rename = "viewportHeight")]
+    pub viewport_height: f64,
+}
+
+impl SelectionBounds {
+    /// Crop rectangle in the captured image's pixels.
+    fn to_image_rect(&self, image_width: u32, image_height: u32) -> Option<(u32, u32, u32, u32)> {
+        desktop::selection_to_image_rect(
+            (self.x, self.y, self.width, self.height),
+            (self.viewport_width, self.viewport_height),
+            (image_width, image_height),
+        )
+    }
+}
+
+/// Returned to the selection window: the screenshot to display and where each
+/// monitor is inside it.
+#[derive(Clone, Serialize, Debug)]
+pub struct CaptureInfo {
+    pub path: String,
+    pub width: u32,
+    pub height: u32,
+    pub monitors: Vec<MonitorRegion>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -390,8 +442,6 @@ fn copy_rgba_to_clipboard(pixels: Vec<u8>, width: u32, height: u32) -> Result<()
 // Tauri commands
 #[tauri::command]
 async fn get_all_settings(app: AppHandle) -> Result<AllSettings, String> {
-    use tauri_plugin_autostart::ManagerExt;
-
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     let default_path = get_default_screenshot_path();
 
@@ -401,7 +451,7 @@ async fn get_all_settings(app: AppHandle) -> Result<AllSettings, String> {
         .unwrap_or_else(|| default_path.to_string_lossy().to_string());
 
     // Auto start
-    let auto_start = app.autolaunch().is_enabled().unwrap_or(false);
+    let auto_start = autostart::is_enabled().unwrap_or(false);
 
     // Image format
     let image_format = store.get("imageFormat")
@@ -562,22 +612,14 @@ async fn set_clipboard_copy_enabled(app: AppHandle, enabled: bool) -> Result<boo
 }
 
 #[tauri::command]
-async fn get_auto_start(app: AppHandle) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let autostart = app.autolaunch();
-    autostart.is_enabled().map_err(|e| e.to_string())
+async fn get_auto_start() -> Result<bool, String> {
+    autostart::is_enabled()
 }
 
 #[tauri::command]
-async fn set_auto_start(app: AppHandle, enabled: bool) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let autostart = app.autolaunch();
-    if enabled {
-        autostart.enable().map_err(|e| e.to_string())?;
-    } else {
-        autostart.disable().map_err(|e| e.to_string())?;
-    }
-    Ok(enabled)
+async fn set_auto_start(enabled: bool) -> Result<bool, String> {
+    // Returns the effective state, so the checkbox reflects what Windows will do.
+    autostart::set_enabled(enabled)
 }
 
 #[cfg(target_os = "windows")]
@@ -623,13 +665,25 @@ async fn set_windows_prtscr_disabled(_disabled: bool) -> Result<bool, String> {
 }
 
 #[tauri::command]
-async fn capture_screen(_app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
+async fn capture_screen(_app: AppHandle, state: State<'_, AppState>) -> Result<CaptureInfo, String> {
     println!("[PERF] {} capture_screen command called", Local::now().format("%H:%M:%S%.3f"));
     // Return the temp file path for asset protocol loading
-    let path_cache = state.current_screenshot_path.lock().unwrap();
-    let path = path_cache.as_ref().ok_or("No screenshot available. Capture was not performed before opening selection window.")?;
-    println!("[PERF] {} Returning path: {}", Local::now().format("%H:%M:%S%.3f"), path);
-    Ok(path.clone())
+    let path = state
+        .current_screenshot_path
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or("No screenshot available. Capture was not performed before opening selection window.")?;
+    let (width, height) = state
+        .current_screenshot
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|r| (r.width, r.height))
+        .ok_or("No screenshot available")?;
+    let monitors = state.monitors.lock().unwrap().clone();
+    println!("[PERF] {} Returning path: {} ({}x{}, {} monitor(s))", Local::now().format("%H:%M:%S%.3f"), path, width, height, monitors.len());
+    Ok(CaptureInfo { path, width, height, monitors })
 }
 
 #[tauri::command]
@@ -647,13 +701,11 @@ async fn process_selection(
         .ok_or("Failed to create image from raw data")?;
     let dynamic_img = DynamicImage::ImageRgba8(img);
 
-    // Crop the image
-    let cropped = dynamic_img.crop_imm(
-        bounds.x as u32,
-        bounds.y as u32,
-        bounds.width as u32,
-        bounds.height as u32,
-    );
+    // Crop the image (selection is in CSS pixels of the selection window)
+    let (crop_x, crop_y, crop_w, crop_h) = bounds
+        .to_image_rect(raw.width, raw.height)
+        .ok_or("Empty selection")?;
+    let cropped = dynamic_img.crop_imm(crop_x, crop_y, crop_w, crop_h);
 
     // Convert to PNG bytes for final storage (quality matters here)
     let mut buffer = Cursor::new(Vec::new());
@@ -816,10 +868,14 @@ async fn cancel_screenshot(state: State<'_, AppState>) -> Result<(), String> {
     drop(current);
     let mut path_cache = state.current_screenshot_path.lock().unwrap();
     *path_cache = None;
+    drop(path_cache);
+    *state.selection_bounds.lock().unwrap() = None;
     Ok(())
 }
 
-fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
+/// Open the options dialog, centred on `monitor` (virtual-screen physical
+/// coordinates) when given, otherwise on the primary monitor.
+fn open_filename_dialog<R: Runtime>(app: &AppHandle<R>, monitor: Option<Rect>) -> Result<(), String> {
     println!("[LOG] {} open_filename_dialog called", Local::now().format("%H:%M:%S%.3f"));
     let existing = app.get_webview_window("filename-dialog");
     if existing.is_some() {
@@ -829,7 +885,7 @@ fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
     let icon_bytes = include_bytes!("../icons/32x32.png");
     let icon = Image::from_bytes(icon_bytes).map_err(|e| e.to_string())?;
 
-    WebviewWindowBuilder::new(app, "filename-dialog", WebviewUrl::App("filename-dialog.html".into()))
+    let dialog = WebviewWindowBuilder::new(app, "filename-dialog", WebviewUrl::App("filename-dialog.html".into()))
         .title("Smart PrtScr - Options")
         .icon(icon).map_err(|e| e.to_string())?
         .inner_size(480.0, 400.0)
@@ -837,10 +893,48 @@ fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
         .decorations(false)
         .always_on_top(true)
         .center()
+        .visible(false)
         .build()
         .map_err(|e| e.to_string())?;
 
+    if let Some(m) = monitor {
+        let size = dialog.outer_size().map_err(|e| e.to_string())?;
+        let x = m.x + (m.width as i32 - size.width as i32) / 2;
+        let y = m.y + (m.height as i32 - size.height as i32) / 2;
+        dialog
+            .set_position(tauri::PhysicalPosition::new(x, y))
+            .map_err(|e| e.to_string())?;
+    }
+    dialog.show().map_err(|e| e.to_string())?;
+    dialog.set_focus().map_err(|e| e.to_string())?;
+
     Ok(())
+}
+
+/// Capture every connected monitor and compose them into one image covering
+/// the whole virtual desktop.
+fn capture_desktop() -> Result<desktop::ComposedDesktop, String> {
+    let screens = Screen::all().map_err(|e| e.to_string())?;
+    let mut captures = Vec::with_capacity(screens.len());
+    for screen in &screens {
+        let info = screen.display_info;
+        let capture = screen.capture().map_err(|e| e.to_string())?;
+        let (w, h) = (capture.width(), capture.height());
+        let image = RgbaImage::from_raw(w, h, capture.as_raw().to_vec())
+            .ok_or("Failed to create image from raw data")?;
+        println!(
+            "[CAPTURE] monitor id={} at ({}, {}) {}x{} scale={} primary={}",
+            info.id, info.x, info.y, w, h, info.scale_factor, info.is_primary
+        );
+        captures.push(MonitorCapture {
+            // Position from the monitor rectangle, size from the actual capture
+            // (both physical pixels for a per-monitor DPI aware process).
+            rect: Rect::new(info.x, info.y, w, h),
+            is_primary: info.is_primary,
+            image,
+        });
+    }
+    desktop::compose(&captures).ok_or_else(|| "No screen found".to_string())
 }
 
 fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result<(), String> {
@@ -853,32 +947,18 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
         return Ok(());
     }
 
-    // Capture screen BEFORE opening the selection window
+    // Capture all screens BEFORE opening the selection window
     let t1 = Instant::now();
-    let screens = Screen::all().map_err(|e| e.to_string())?;
-    let screen = screens.first().ok_or("No screen found")?;
-    println!("[PERF] {} Screen::all() took {:?}", Local::now().format("%H:%M:%S%.3f"), t1.elapsed());
+    let composed = capture_desktop()?;
+    println!("[PERF] {} capture_desktop() took {:?}", Local::now().format("%H:%M:%S%.3f"), t1.elapsed());
 
-    let t2 = Instant::now();
-    let capture = screen.capture().map_err(|e| e.to_string())?;
-    println!("[PERF] {} screen.capture() took {:?}", Local::now().format("%H:%M:%S%.3f"), t2.elapsed());
-
-    // Get screen info for window size
-    let info = screen.display_info;
-
-    // Store raw RGBA data
-    let t3 = Instant::now();
-    let rgba_data = capture.as_raw().to_vec();
-    let width = capture.width();
-    let height = capture.height();
-    println!("[PERF] {} as_raw().to_vec() took {:?}", Local::now().format("%H:%M:%S%.3f"), t3.elapsed());
+    let width = composed.image.width();
+    let height = composed.image.height();
 
     // Write BMP to temp file for fast loading via asset protocol
     let t4 = Instant::now();
-    let img = RgbaImage::from_raw(width, height, rgba_data.clone())
-        .ok_or("Failed to create image from raw data")?;
     let temp_path = std::env::temp_dir().join("smart-prtscr-preview.bmp");
-    img.save(&temp_path).map_err(|e| e.to_string())?;
+    composed.image.save(&temp_path).map_err(|e| e.to_string())?;
     let temp_path_str = temp_path.to_string_lossy().to_string();
     println!("[PERF] {} BMP save to temp file took {:?}", Local::now().format("%H:%M:%S%.3f"), t4.elapsed());
 
@@ -886,7 +966,7 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
     {
         let mut current = state.current_screenshot.lock().unwrap();
         *current = Some(RawScreenshot {
-            data: rgba_data,
+            data: composed.image.into_raw(),
             width,
             height,
         });
@@ -895,33 +975,94 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
         let mut path_cache = state.current_screenshot_path.lock().unwrap();
         *path_cache = Some(temp_path_str);
     }
+    *state.monitors.lock().unwrap() = composed.monitors;
     println!("[PERF] {} Total before window creation: {:?}", Local::now().format("%H:%M:%S%.3f"), start.elapsed());
 
     let t6 = Instant::now();
-    let _window = WebviewWindowBuilder::new(app, "selection", WebviewUrl::App("selection.html".into()))
-        .title("Selection")
-        .inner_size(info.width as f64, info.height as f64)
-        .position(info.x as f64, info.y as f64)
-        .fullscreen(true)
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .resizable(false)
-        .visible(false)
-        .build()
-        .map_err(|e| e.to_string())?;
+    create_selection_window(app, composed.bounds)?;
     println!("[PERF] {} Window creation took {:?}", Local::now().format("%H:%M:%S%.3f"), t6.elapsed());
-
-    // Open filename-dialog simultaneously (centered, always on top)
-    let t7 = Instant::now();
-    open_filename_dialog(app)?;
-    println!("[PERF] {} filename-dialog creation took {:?}", Local::now().format("%H:%M:%S%.3f"), t7.elapsed());
 
     println!("[PERF] {} TOTAL open_selection_window: {:?}", Local::now().format("%H:%M:%S%.3f"), start.elapsed());
 
     // Window will be shown by frontend after image is loaded (via show_selection_window command)
 
     Ok(())
+}
+
+/// Place a window exactly over `bounds` (physical pixels). Size is applied
+/// after the position: moving onto a monitor with another DPI makes Windows
+/// rescale the window, which the second call corrects.
+fn place_window<R: Runtime>(window: &tauri::WebviewWindow<R>, bounds: Rect) -> Result<(), String> {
+    window
+        .set_position(tauri::PhysicalPosition::new(bounds.x, bounds.y))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_size(tauri::PhysicalSize::new(bounds.width, bounds.height))
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Create the (hidden) selection window; the frontend shows it once the
+/// screenshot is loaded (show_selection_window).
+/// The window spans the whole virtual desktop (all monitors), so it is a
+/// borderless window placed in physical pixels rather than a fullscreen
+/// window, which would only cover one monitor.
+fn create_selection_window<R: Runtime>(app: &AppHandle<R>, bounds: Rect) -> Result<(), String> {
+    {
+        let state = app.state::<AppState>();
+        *state.selection_bounds.lock().unwrap() = None;
+        *state.desktop_bounds.lock().unwrap() = Some(bounds);
+    }
+    let window = WebviewWindowBuilder::new(app, "selection", WebviewUrl::App("selection.html".into()))
+        .title("Selection")
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .shadow(false)
+        .visible(false)
+        .build()
+        .map_err(|e| e.to_string())?;
+    place_window(&window, bounds)?;
+
+    // The options dialog is NOT opened here: it appears once the user has
+    // selected a zone (on_selection_ready).
+    Ok(())
+}
+
+/// Called each time the user selects / moves / resizes the zone. The first
+/// call opens the options dialog; later calls update it.
+fn on_selection_ready<R: Runtime>(app: &AppHandle<R>, bounds: SelectionBounds) -> Result<(), String> {
+    {
+        let state = app.state::<AppState>();
+        *state.selection_bounds.lock().unwrap() = Some(bounds.clone());
+    }
+    if app.get_webview_window("filename-dialog").is_none() {
+        // The dialog reads the stored bounds at startup (get_selection_bounds).
+        open_filename_dialog(app, dialog_monitor(app, &bounds))?;
+    } else {
+        let _ = app.emit_to("filename-dialog", "selection-bounds-changed", bounds);
+    }
+    Ok(())
+}
+
+/// Monitor holding the centre of the selection (virtual-screen coordinates).
+fn dialog_monitor<R: Runtime>(app: &AppHandle<R>, bounds: &SelectionBounds) -> Option<Rect> {
+    let state = app.state::<AppState>();
+    let desktop = (*state.desktop_bounds.lock().unwrap())?;
+    let monitors = state.monitors.lock().unwrap();
+    let crop = bounds.to_image_rect(desktop.width, desktop.height)?;
+    desktop::monitor_for_selection(&desktop, &monitors, crop)
+}
+
+#[tauri::command]
+async fn selection_ready(app: AppHandle, bounds: SelectionBounds) -> Result<(), String> {
+    on_selection_ready(&app, bounds)
+}
+
+#[tauri::command]
+async fn get_selection_bounds(state: State<'_, AppState>) -> Result<Option<SelectionBounds>, String> {
+    Ok(state.selection_bounds.lock().unwrap().clone())
 }
 
 fn open_main_window(app: &AppHandle) -> Result<(), String> {
@@ -979,10 +1120,18 @@ async fn log_message(message: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn show_selection_window(app: AppHandle) -> Result<(), String> {
+async fn show_selection_window(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     println!("[LOG] {} show_selection_window called", Local::now().format("%H:%M:%S%.3f"));
     if let Some(window) = app.get_webview_window("selection") {
+        let bounds = *state.desktop_bounds.lock().unwrap();
+        if let Some(bounds) = bounds {
+            place_window(&window, bounds)?;
+        }
         window.show().map_err(|e| e.to_string())?;
+        // Showing can trigger a DPI change; make sure every monitor is still covered.
+        if let Some(bounds) = bounds {
+            place_window(&window, bounds)?;
+        }
         window.set_focus().map_err(|e| e.to_string())?;
     }
     // Bring filename-dialog to front after selection window is shown
@@ -1019,10 +1168,6 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            Some(vec!["--hidden"]),
-        ))
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = open_main_window(app);
         }))
@@ -1057,10 +1202,12 @@ pub fn run() {
             log_message,
             show_selection_window,
             focus_dialog,
+            selection_ready,
+            get_selection_bounds,
         ])
         .setup(|app| {
             // Setup system tray
-            let open_item = MenuItemBuilder::with_id("open", "Ouvrir").build(app)?;
+            let open_item = MenuItemBuilder::with_id("open", "Options").build(app)?;
             let capture_item = MenuItemBuilder::with_id("capture", "Capturer (PrtScr)").build(app)?;
             let folder_item = MenuItemBuilder::with_id("folder", "Dossier de sauvegarde").build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "Quitter").build(app)?;
@@ -1081,7 +1228,7 @@ pub fn run() {
                 .icon(icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
-                .tooltip("Smart PrtScr - Ready")
+                .tooltip("Smart PrtScr - Clic : capturer | Clic droit : menu")
                 .on_menu_event(move |app, event| {
                     match event.id().as_ref() {
                         "open" => {
@@ -1111,13 +1258,12 @@ pub fn run() {
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let _ = open_main_window(tray.app_handle());
+                    if let TrayIconEvent::Click { button, button_state, .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(TrayClickAction::StartCapture) = tray_click_action(button, button_state) {
+                            let state: State<'_, AppState> = app.state();
+                            let _ = open_selection_window(app, &state);
+                        }
                     }
                 })
                 .build(app)?;
@@ -1156,4 +1302,92 @@ pub fn run() {
                 api.prevent_exit();
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
+        tauri::test::mock_builder()
+            .manage(AppState::default())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app")
+    }
+
+    /// Real capture on this machine, compared with Windows' virtual-screen
+    /// metrics. Run explicitly: `cargo test --lib -- --ignored capture_desktop`
+    #[cfg(target_os = "windows")]
+    #[test]
+    #[ignore = "captures the real screens"]
+    fn capture_desktop_covers_the_whole_virtual_screen() {
+        use windows::Win32::UI::HiDpi::{
+            SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+        };
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetSystemMetrics, SM_CMONITORS, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+            SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+        };
+        // Same DPI awareness as the app (set by Tauri at startup).
+        unsafe {
+            let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
+        let expected = unsafe {
+            Rect::new(
+                GetSystemMetrics(SM_XVIRTUALSCREEN),
+                GetSystemMetrics(SM_YVIRTUALSCREEN),
+                GetSystemMetrics(SM_CXVIRTUALSCREEN) as u32,
+                GetSystemMetrics(SM_CYVIRTUALSCREEN) as u32,
+            )
+        };
+        let monitor_count = unsafe { GetSystemMetrics(SM_CMONITORS) } as usize;
+
+        let desktop = capture_desktop().expect("capture");
+        println!("virtual screen {:?}, monitors {:?}", desktop.bounds, desktop.monitors);
+        assert_eq!(desktop.bounds, expected);
+        assert_eq!(desktop.image.dimensions(), (expected.width, expected.height));
+        assert_eq!(desktop.monitors.len(), monitor_count);
+        assert_eq!(desktop.monitors.iter().filter(|m| m.primary).count(), 1);
+    }
+
+    #[test]
+    fn options_dialog_appears_only_after_the_zone_is_selected() {
+        let app = mock_app();
+        let handle = app.handle();
+
+        create_selection_window(handle, Rect::new(0, 0, 1920, 1080)).unwrap();
+        assert!(handle.get_webview_window("selection").is_some());
+        assert!(
+            handle.get_webview_window("filename-dialog").is_none(),
+            "options dialog must not be open while the user is still selecting the zone"
+        );
+
+        let bounds = SelectionBounds {
+            x: 10.0,
+            y: 20.0,
+            width: 300.0,
+            height: 200.0,
+            viewport_width: 1920.0,
+            viewport_height: 1080.0,
+        };
+        on_selection_ready(handle, bounds).unwrap();
+        assert!(handle.get_webview_window("filename-dialog").is_some());
+        let stored = handle.state::<AppState>().selection_bounds.lock().unwrap().clone();
+        assert_eq!(stored.map(|b| (b.x, b.y, b.width, b.height)), Some((10.0, 20.0, 300.0, 200.0)));
+    }
+
+    #[test]
+    fn tray_left_click_starts_a_capture() {
+        assert_eq!(
+            tray_click_action(MouseButton::Left, MouseButtonState::Up),
+            Some(TrayClickAction::StartCapture)
+        );
+    }
+
+    #[test]
+    fn tray_other_clicks_do_nothing_so_the_right_click_menu_shows() {
+        assert_eq!(tray_click_action(MouseButton::Left, MouseButtonState::Down), None);
+        assert_eq!(tray_click_action(MouseButton::Right, MouseButtonState::Up), None);
+        assert_eq!(tray_click_action(MouseButton::Middle, MouseButtonState::Up), None);
+    }
 }

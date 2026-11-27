@@ -10,8 +10,10 @@
       box-sizing: border-box;
     }
 
-    html, body {
-      overflow: hidden;
+    html {
+      /* Vertical scroll bar when the content is taller than the window */
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     body {
@@ -443,6 +445,7 @@
     </div>
   </div>
 
+  <script src="window-fit.js"></script>
   <script type="module">
     const { invoke } = window.__TAURI__.core;
     const { emit, emitTo, listen } = window.__TAURI__.event;
@@ -492,7 +495,8 @@
     async function adjustWindowHeight(animate = true) {
       try {
         const win = getCurrentWindow();
-        const targetHeight = document.body.scrollHeight;
+        // Follow the content but stay within the screen; the page scrolls beyond that.
+        const targetHeight = WindowFit.fitWindowHeight(document.body.scrollHeight, window.screen.availHeight);
 
         if (!animate) {
           await win.setSize(new LogicalSize(WINDOW_WIDTH, targetHeight));
@@ -709,7 +713,12 @@
         // Charger la destination
         await loadDestination();
 
-        // Disable save button until selection bounds are received
+        // The dialog opens once a zone is selected: fetch it (later changes
+        // arrive through 'selection-bounds-changed').
+        const storedBounds = await invoke('get_selection_bounds');
+        if (storedBounds && !currentBounds) {
+          currentBounds = storedBounds;
+        }
         updateSaveButtonState();
 
         // Ajuster la hauteur de la fenêtre (sans animation)

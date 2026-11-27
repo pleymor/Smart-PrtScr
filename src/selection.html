@@ -749,7 +749,7 @@
     // ============================================
     // Event listener for fullscreen capture trigger
     // ============================================
-    const { listen, emitTo } = window.__TAURI__.event;
+    const { listen } = window.__TAURI__.event;
 
     // Emit selection bounds to filename-dialog for save
     function emitSelectionBounds() {
@@ -760,9 +760,12 @@
           width: Math.round(appState.selection.width),
           height: Math.round(appState.selection.height)
         };
-        // Use emitTo to target the filename-dialog window specifically
-        emitTo('filename-dialog', 'selection-bounds-changed', bounds);
-        log('Emitted selection-bounds-changed: ' + JSON.stringify(bounds));
+        // Stores the bounds and opens the options dialog on the first selection
+        // (the dialog must not appear before a zone is selected).
+        invoke('selection_ready', { bounds })
+          .then(() => invoke('focus_dialog'))
+          .catch((err) => log('selection_ready failed: ' + err));
+        log('selection_ready: ' + JSON.stringify(bounds));
       }
     }
     listen('capture-full-screen', () => {

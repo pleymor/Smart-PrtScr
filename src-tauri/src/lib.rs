@@ -13,7 +13,7 @@ use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Listener, Manager, State, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Emitter, Listener, Manager, Runtime, State, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
@@ -154,6 +154,8 @@ pub struct AppState {
     pub current_screenshot: Mutex<Option<RawScreenshot>>,
     pub current_screenshot_path: Mutex<Option<String>>, // Temp file path for quick loading via asset protocol
     pub pending_screenshot: Mutex<Option<PendingScreenshot>>,
+    /// Last zone selected in the selection window (None until the user selects one).
+    pub selection_bounds: Mutex<Option<SelectionBounds>>,
 }
 
 #[derive(Clone)]
@@ -821,10 +823,12 @@ async fn cancel_screenshot(state: State<'_, AppState>) -> Result<(), String> {
     drop(current);
     let mut path_cache = state.current_screenshot_path.lock().unwrap();
     *path_cache = None;
+    drop(path_cache);
+    *state.selection_bounds.lock().unwrap() = None;
     Ok(())
 }
 
-fn open_filename_dialog(app: &AppHandle) -> Result<(), String> {
+fn open_filename_dialog<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     println!("[LOG] {} open_filename_dialog called", Local::now().format("%H:%M:%S%.3f"));
     let existing = app.get_webview_window("filename-dialog");
     if existing.is_some() {
@@ -903,10 +907,33 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
     println!("[PERF] {} Total before window creation: {:?}", Local::now().format("%H:%M:%S%.3f"), start.elapsed());
 
     let t6 = Instant::now();
-    let _window = WebviewWindowBuilder::new(app, "selection", WebviewUrl::App("selection.html".into()))
+    create_selection_window(app, info.x, info.y, info.width, info.height)?;
+    println!("[PERF] {} Window creation took {:?}", Local::now().format("%H:%M:%S%.3f"), t6.elapsed());
+
+    println!("[PERF] {} TOTAL open_selection_window: {:?}", Local::now().format("%H:%M:%S%.3f"), start.elapsed());
+
+    // Window will be shown by frontend after image is loaded (via show_selection_window command)
+
+    Ok(())
+}
+
+/// Create the (hidden) selection window; the frontend shows it once the
+/// screenshot is loaded (show_selection_window).
+fn create_selection_window<R: Runtime>(
+    app: &AppHandle<R>,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    {
+        let state = app.state::<AppState>();
+        *state.selection_bounds.lock().unwrap() = None;
+    }
+    WebviewWindowBuilder::new(app, "selection", WebviewUrl::App("selection.html".into()))
         .title("Selection")
-        .inner_size(info.width as f64, info.height as f64)
-        .position(info.x as f64, info.y as f64)
+        .inner_size(width as f64, height as f64)
+        .position(x as f64, y as f64)
         .fullscreen(true)
         .decorations(false)
         .always_on_top(true)
@@ -915,18 +942,36 @@ fn open_selection_window(app: &AppHandle, state: &State<'_, AppState>) -> Result
         .visible(false)
         .build()
         .map_err(|e| e.to_string())?;
-    println!("[PERF] {} Window creation took {:?}", Local::now().format("%H:%M:%S%.3f"), t6.elapsed());
 
-    // Open filename-dialog simultaneously (centered, always on top)
-    let t7 = Instant::now();
-    open_filename_dialog(app)?;
-    println!("[PERF] {} filename-dialog creation took {:?}", Local::now().format("%H:%M:%S%.3f"), t7.elapsed());
-
-    println!("[PERF] {} TOTAL open_selection_window: {:?}", Local::now().format("%H:%M:%S%.3f"), start.elapsed());
-
-    // Window will be shown by frontend after image is loaded (via show_selection_window command)
-
+    // The options dialog is NOT opened here: it appears once the user has
+    // selected a zone (on_selection_ready).
     Ok(())
+}
+
+/// Called each time the user selects / moves / resizes the zone. The first
+/// call opens the options dialog; later calls update it.
+fn on_selection_ready<R: Runtime>(app: &AppHandle<R>, bounds: SelectionBounds) -> Result<(), String> {
+    {
+        let state = app.state::<AppState>();
+        *state.selection_bounds.lock().unwrap() = Some(bounds.clone());
+    }
+    if app.get_webview_window("filename-dialog").is_none() {
+        // The dialog reads the stored bounds at startup (get_selection_bounds).
+        open_filename_dialog(app)?;
+    } else {
+        let _ = app.emit_to("filename-dialog", "selection-bounds-changed", bounds);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn selection_ready(app: AppHandle, bounds: SelectionBounds) -> Result<(), String> {
+    on_selection_ready(&app, bounds)
+}
+
+#[tauri::command]
+async fn get_selection_bounds(state: State<'_, AppState>) -> Result<Option<SelectionBounds>, String> {
+    Ok(state.selection_bounds.lock().unwrap().clone())
 }
 
 fn open_main_window(app: &AppHandle) -> Result<(), String> {
@@ -1058,6 +1103,8 @@ pub fn run() {
             log_message,
             show_selection_window,
             focus_dialog,
+            selection_ready,
+            get_selection_bounds,
         ])
         .setup(|app| {
             // Setup system tray
@@ -1161,6 +1208,32 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
+        tauri::test::mock_builder()
+            .manage(AppState::default())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app")
+    }
+
+    #[test]
+    fn options_dialog_appears_only_after_the_zone_is_selected() {
+        let app = mock_app();
+        let handle = app.handle();
+
+        create_selection_window(handle, 0, 0, 1920, 1080).unwrap();
+        assert!(handle.get_webview_window("selection").is_some());
+        assert!(
+            handle.get_webview_window("filename-dialog").is_none(),
+            "options dialog must not be open while the user is still selecting the zone"
+        );
+
+        let bounds = SelectionBounds { x: 10, y: 20, width: 300, height: 200 };
+        on_selection_ready(handle, bounds).unwrap();
+        assert!(handle.get_webview_window("filename-dialog").is_some());
+        let stored = handle.state::<AppState>().selection_bounds.lock().unwrap().clone();
+        assert_eq!(stored.map(|b| (b.x, b.y, b.width, b.height)), Some((10, 20, 300, 200)));
+    }
 
     #[test]
     fn tray_left_click_starts_a_capture() {

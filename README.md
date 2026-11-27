@@ -107,15 +107,15 @@ signtool sign /fd SHA256 /a /f cert.pfx /p password .\msix-output\SmartPrtScr_*.
 
 | Shortcut | Action |
 |----------|--------|
-| `PrintScreen` | Open selection window with options dialog |
+| `PrintScreen` | Open the selection window (the options dialog appears once a zone is selected) |
 | `Win+Shift+PrintScreen` | Full screen capture (selection covers entire screen) |
 | `Escape` | Cancel capture |
 
 ### Capture Workflow
 
-1. Press `PrintScreen` to start a capture
-2. Both the selection window and options dialog open simultaneously
-3. Draw a rectangle on the screen to select the area
+1. Press `PrintScreen` (or left-click the tray icon) to start a capture
+2. Draw a rectangle on the screen to select the area
+3. The options dialog appears once the area is selected
 4. The timestamp preview appears on your selection in real-time
 5. Adjust timestamp options in the dialog - changes reflect instantly
 6. Click **Save** to capture, or press `Escape` to cancel

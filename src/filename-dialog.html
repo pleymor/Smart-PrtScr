@@ -709,7 +709,12 @@
         // Charger la destination
         await loadDestination();
 
-        // Disable save button until selection bounds are received
+        // The dialog opens once a zone is selected: fetch it (later changes
+        // arrive through 'selection-bounds-changed').
+        const storedBounds = await invoke('get_selection_bounds');
+        if (storedBounds && !currentBounds) {
+          currentBounds = storedBounds;
+        }
         updateSaveButtonState();
 
         // Ajuster la hauteur de la fenêtre (sans animation)
